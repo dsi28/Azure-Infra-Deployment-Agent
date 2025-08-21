@@ -4,7 +4,7 @@ Chat interface logic for the Azure Infrastructure Agent.
 import signal
 import sys
 from typing import Optional
-from cli.interface import TerminalInterface
+from .interface import TerminalInterface
 
 
 class ChatManager:

@@ -2,7 +2,7 @@
 Azure Infrastructure Agent - Main Entry Point
 """
 import click
-from cli.chat import ChatManager
+from .cli.chat import ChatManager
 
 
 @click.command()

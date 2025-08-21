@@ -11,7 +11,10 @@ The Azure Infrastructure Agent guides users through resource specification, gene
 - **Conversational Interface**: Natural language interaction for specifying infrastructure requirements
 - **Guided Configuration**: Interactive prompts to gather all necessary parameters
 - **Template Generation**: Automatic creation of ARM/Bicep templates from user specifications
-- **Deployment Management**: Execute and monitor Azure deployments with status reporting
+- **Azure Authentication**: Multi-method authentication with automatic fallback (CLI, Service Principal, Managed Identity)
+- **Deployment Management**: Execute and monitor Azure deployments with real-time status reporting
+- **Rollback Capability**: Comprehensive rollback functionality for failed deployments
+- **Template Validation**: Pre-deployment validation with warnings and error detection
 
 ## Prerequisites
 
@@ -52,9 +55,9 @@ Run the agent:
 python -m src.main
 ```
 
-### Current Functionality (Sprint 2 Complete)
+### Current Functionality (Sprint 3 Partial Complete)
 
-The agent currently supports natural language intent parsing, storage account configuration, and ARM template generation:
+The agent currently supports natural language intent parsing, storage account configuration, ARM template generation, Azure authentication, and deployment engine:
 
 ```python
 # Example: Intent parsing
@@ -77,6 +80,32 @@ from src.templates.storage_template_generator import create_storage_template_gen
 template_gen = create_storage_template_generator()
 generated = template_gen.generate_template(config)
 preview = template_gen.preview_template(config)
+
+# Example: Azure authentication
+from src.auth.azure_auth import create_azure_authenticator
+
+authenticator = create_azure_authenticator()
+auth_result = authenticator.authenticate()
+# Returns: authentication result with credentials and subscription info
+
+# Example: ARM template deployment
+from src.deployers.arm_deployer import create_arm_deployer, DeploymentConfig
+
+deployer = create_arm_deployer()
+deployment_config = DeploymentConfig(
+    deployment_name="my-storage-deployment",
+    resource_group_name="my-rg",
+    location="East US",
+    template=generated,
+    parameters={"storageAccountName": "mystorageaccount123"}
+)
+
+# Validate template before deployment
+validation_result = deployer.validate_template(deployment_config)
+if validation_result.is_valid:
+    # Deploy the template
+    deployment_result = deployer.deploy(deployment_config)
+    print(f"Deployment status: {deployment_result.status.provisioning_state}")
 ```
 
 ### Supported Intents
@@ -125,9 +154,14 @@ src/
 │   ├── generator.py   # Base ARM template generator with Jinja2
 │   ├── storage_template_generator.py # Storage-specific template generator
 │   └── storage_account.json.j2 # Jinja2 template for storage accounts
+├── auth/               # Azure authentication
+│   ├── __init__.py
+│   └── azure_auth.py  # Multi-method Azure authentication (CLI, Service Principal, Managed Identity)
 ├── deployers/          # Azure deployment logic
 │   ├── __init__.py
-│   └── azure.py       # Azure authentication and deployment
+│   ├── azure.py       # Legacy Azure deployment (being phased out)
+│   ├── arm_deployer.py # ARM template deployment engine with validation and rollback
+│   └── deployment_monitor.py # Real-time deployment monitoring and progress tracking
 └── config/             # Configuration management
     ├── __init__.py
     ├── settings.py     # Application and Azure settings
@@ -142,6 +176,8 @@ tests/                  # Comprehensive test suite
 │   ├── agents/        # Intent parsing and entity extraction tests
 │   ├── resources/     # Resource handler and validation tests
 │   ├── templates/     # Template generation and validation tests
+│   ├── auth/          # Azure authentication tests
+│   ├── deployers/     # Deployment engine and monitoring tests
 │   └── ...
 ```
 
@@ -223,7 +259,27 @@ flake8 src/ tests/
 - ✅ Template preview functionality with human-readable summaries
 - ✅ Integration with storage account configuration system
 
-**Next**: Sprint 3 - Azure Integration & Deployment Engine
+**✅ Sprint 3 Azure Integration & Deployment (Partial)**:
+
+**✅ Task 3.1 Completed**: Azure Authentication
+- ✅ Multi-method authentication (Azure CLI, Service Principal, Managed Identity)
+- ✅ Automatic fallback between authentication methods
+- ✅ Subscription validation and access checking
+- ✅ Authentication result caching with expiration
+- ✅ Clear error messages and troubleshooting guidance
+- ✅ Comprehensive test coverage for all authentication scenarios
+
+**✅ Task 3.2 Completed**: Azure Deployment Engine
+- ✅ ARM template deployment with validation and error handling
+- ✅ Real-time deployment monitoring with progress callbacks
+- ✅ Deployment rollback functionality (deletion and previous deployment)
+- ✅ Resource group management and automatic creation
+- ✅ Template validation before deployment with warnings analysis
+- ✅ Deployment history tracking and operation monitoring
+- ✅ Extensible callback system for UI integration
+- ✅ Timeout handling and graceful cancellation
+
+**Next**: Task 3.3 - End-to-End Storage Account Flow
 
 ## Contributing
 
