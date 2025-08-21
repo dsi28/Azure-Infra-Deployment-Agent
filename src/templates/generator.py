@@ -142,7 +142,7 @@ class TemplateGenerator:
             # Add common template variables
             template_vars = {
                 **parameters,
-                'generated_at': datetime.utcnow().isoformat(),
+                'generation_timestamp': datetime.utcnow().isoformat(),
                 'generator_version': '1.0.0',
             }
             

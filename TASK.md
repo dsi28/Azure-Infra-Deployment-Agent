@@ -70,34 +70,36 @@ src/
 
 ## Sprint 2: Intent Recognition & Storage Account (Week 2)
 
-### Task 2.1: Basic Intent Parser
+### ✅ Task 2.1: Basic Intent Parser - COMPLETED
 **Priority**: High | **Effort**: 6 hours
 
-- [ ] Create intent classification system
-- [ ] Implement keyword-based resource detection
-- [ ] Add basic entity extraction (resource names, regions)
-- [ ] Create response routing logic
+- [x] Create intent classification system
+- [x] Implement keyword-based resource detection
+- [x] Add basic entity extraction (resource names, regions)
+- [x] Create response routing logic
 
-**Files to Create**:
-- `src/agents/intent_parser.py`
-- `src/agents/entities.py`
+**Files Created**:
+- ✅ `src/agents/intent_parser.py`
+- ✅ `src/agents/entities.py`
 
-**Test Cases**:
-- "I need a storage account" → storage_account intent
-- "Create a web app called myapp" → web_app intent + name entity
-- "Deploy to East US" → region entity
+**Test Cases Implemented**:
+- ✅ "I need a storage account" → storage_account intent
+- ✅ "Create a web app called myapp" → web_app intent + name entity
+- ✅ "Deploy to East US" → region entity
 
-### Task 2.2: Storage Account Resource Handler
+### ✅ Task 2.2: Storage Account Resource Handler - COMPLETED
 **Priority**: High | **Effort**: 8 hours
 
-- [ ] Create storage account resource class
-- [ ] Implement parameter collection logic
-- [ ] Add validation for storage account names
-- [ ] Create interactive questionnaire flow
+- [x] Create storage account resource class
+- [x] Implement parameter collection logic
+- [x] Add validation for storage account names
+- [x] Create interactive questionnaire flow
 
-**Files to Create**:
-- `src/resources/storage_account.py`
-- `src/resources/validators.py`
+**Files Created**:
+- ✅ `src/resources/storage_account.py`
+- ✅ `src/resources/storage_config.py`
+- ✅ `src/resources/validators.py`
+- ✅ `src/resources/validation_result.py`
 
 **Parameters to Collect**:
 - Account name
@@ -107,22 +109,23 @@ src/
 - Replication type (LRS, GRS, etc.)
 - Access tier (Hot/Cool)
 
-### Task 2.3: ARM Template Generator for Storage
+### ✅ Task 2.3: ARM Template Generator for Storage - COMPLETED
 **Priority**: High | **Effort**: 6 hours
 
-- [ ] Create Jinja2 template for storage accounts
-- [ ] Implement parameter substitution
-- [ ] Add template validation
-- [ ] Create template preview functionality
+- [x] Create Jinja2 template for storage accounts
+- [x] Implement parameter substitution
+- [x] Add template validation
+- [x] Create template preview functionality
 
-**Files to Create**:
-- `src/templates/storage_account.json.j2`
-- `templates/arm/storage_account_template.json`
+**Files Created**:
+- ✅ `src/templates/storage_account.json.j2`
+- ✅ `templates/arm/storage_account_template.json`
+- ✅ `src/templates/storage_template_generator.py`
 
 **Acceptance Criteria**:
-- Generated templates are valid ARM JSON
-- All collected parameters are properly substituted
-- User can preview template before deployment
+- ✅ Generated templates are valid ARM JSON
+- ✅ All collected parameters are properly substituted
+- ✅ User can preview template before deployment
 
 ## Sprint 3: Azure Integration & Deployment (Week 3)
 

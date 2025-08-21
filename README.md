@@ -45,10 +45,58 @@ The Azure Infrastructure Agent guides users through resource specification, gene
 
 ## Usage
 
+### Basic Usage
+
 Run the agent:
 ```bash
 python -m src.main
 ```
+
+### Current Functionality (Sprint 2 Complete)
+
+The agent currently supports natural language intent parsing, storage account configuration, and ARM template generation:
+
+```python
+# Example: Intent parsing
+from src.agents.intent_parser import create_basic_intent_parser
+from src.agents.entities import create_entity_extractor
+
+parser = create_basic_intent_parser()
+response = parser.process({"user_input": "I need a storage account in East US"})
+# Returns: storage_account intent with region entity
+
+# Example: Storage account configuration
+from src.resources.storage_account import create_storage_account_resource
+
+storage_handler = create_storage_account_resource()
+config = storage_handler.collect_parameters_interactively()
+
+# Example: ARM template generation
+from src.templates.storage_template_generator import create_storage_template_generator
+
+template_gen = create_storage_template_generator()
+generated = template_gen.generate_template(config)
+preview = template_gen.preview_template(config)
+```
+
+### Supported Intents
+
+- **Storage Account**: "I need a storage account", "Create storage", "Deploy a storage account"
+- **Web App**: "Create a web app", "I need an app service", "Deploy web application"
+- **Virtual Machine**: "Create a VM", "I need a virtual machine"
+- **And 10+ more Azure resource types**
+
+### Supported Parameters
+
+**Storage Accounts**:
+- Account name (with Azure naming validation)
+- Resource group (new or existing)
+- Location/region (validated against Azure regions)
+- Performance tier (Standard/Premium)
+- Replication type (LRS, GRS, RAGRS, ZRS, GZRS, RAGZRS)
+- Access tier (Hot/Cool/Archive)
+- Storage account kind (StorageV2, Storage, FileStorage, etc.)
+- Tags and advanced security settings
 
 ## Project Structure
 
@@ -62,13 +110,21 @@ src/
 │   └── interface.py    # Terminal interface handling
 ├── agents/             # Intent parsing and AI logic
 │   ├── __init__.py
-│   └── base.py        # Base agent classes and interfaces
+│   ├── base.py        # Base agent classes and interfaces
+│   ├── entities.py    # Entity extraction system for Azure resources
+│   └── intent_parser.py # Intent classification and routing logic
 ├── resources/          # Azure resource handlers
 │   ├── __init__.py
-│   └── base.py        # Base resource classes and validation
+│   ├── base.py        # Base resource classes and validation
+│   ├── storage_account.py # Storage account resource handler
+│   ├── storage_config.py  # Storage account configuration classes
+│   ├── validators.py  # Azure resource validation utilities
+│   └── validation_result.py # Validation result containers
 ├── templates/          # Template generation
 │   ├── __init__.py
-│   └── generator.py   # ARM template generator with Jinja2
+│   ├── generator.py   # Base ARM template generator with Jinja2
+│   ├── storage_template_generator.py # Storage-specific template generator
+│   └── storage_account.json.j2 # Jinja2 template for storage accounts
 ├── deployers/          # Azure deployment logic
 │   ├── __init__.py
 │   └── azure.py       # Azure authentication and deployment
@@ -76,6 +132,17 @@ src/
     ├── __init__.py
     ├── settings.py     # Application and Azure settings
     └── logging.py      # Logging configuration with Rich support
+
+templates/
+└── arm/                # Static ARM template examples
+    └── storage_account_template.json # Storage account ARM template
+
+tests/                  # Comprehensive test suite
+├── src/
+│   ├── agents/        # Intent parsing and entity extraction tests
+│   ├── resources/     # Resource handler and validation tests
+│   ├── templates/     # Template generation and validation tests
+│   └── ...
 ```
 
 ## Development
@@ -133,7 +200,30 @@ flake8 src/ tests/
 - ✅ ARM template generator with Jinja2 templating engine
 - ✅ Azure deployment engine with authentication and monitoring
 
-**Next**: Sprint 2 - Intent Recognition & Storage Account Implementation
+**✅ Sprint 2 Intent Recognition & Storage Account Completed**:
+
+**✅ Task 2.1 Completed**: Basic Intent Parser
+- ✅ Intent classification system with 15+ Azure resource intents
+- ✅ Keyword-based resource detection and routing logic
+- ✅ Entity extraction system for Azure resources (names, regions, tiers)
+- ✅ Response routing with agent request/response architecture
+- ✅ Comprehensive test coverage for intent parsing scenarios
+
+**✅ Task 2.2 Completed**: Storage Account Resource Handler
+- ✅ Storage account resource class with parameter collection
+- ✅ Interactive questionnaire flow for guided parameter gathering
+- ✅ Azure-specific validation with naming rules and constraints
+- ✅ Support for all storage account parameters (tier, replication, access tier)
+- ✅ Modular architecture with separate config and validation modules
+
+**✅ Task 2.3 Completed**: ARM Template Generator for Storage
+- ✅ Jinja2 template for storage account ARM deployments
+- ✅ Parameter substitution with dynamic template rendering
+- ✅ Template validation with ARM schema and security checks
+- ✅ Template preview functionality with human-readable summaries
+- ✅ Integration with storage account configuration system
+
+**Next**: Sprint 3 - Azure Integration & Deployment Engine
 
 ## Contributing
 
