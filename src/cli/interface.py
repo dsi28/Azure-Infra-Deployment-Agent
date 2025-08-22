@@ -37,7 +37,7 @@ class TerminalInterface:
         
         panel = Panel(
             welcome_text,
-            title="🚀 Welcome",
+            title="Welcome",
             border_style="blue",
             padding=(1, 2)
         )
@@ -65,7 +65,7 @@ class TerminalInterface:
         response_text = Text(message, style="cyan")
         panel = Panel(
             response_text,
-            title="🤖 Agent",
+            title="Agent",
             border_style="cyan",
             padding=(0, 1)
         )
@@ -81,7 +81,7 @@ class TerminalInterface:
         error_text = Text(error_message, style="red")
         panel = Panel(
             error_text,
-            title="❌ Error",
+            title="Error",
             border_style="red",
             padding=(0, 1)
         )
@@ -97,8 +97,24 @@ class TerminalInterface:
         info_text = Text(info_message, style="yellow")
         panel = Panel(
             info_text,
-            title="ℹ️ Info",
+            title="Info",
             border_style="yellow",
+            padding=(0, 1)
+        )
+        self.console.print(panel)
+    
+    def display_success(self, success_message: str) -> None:
+        """
+        Display success messages with styling.
+        
+        Args:
+            success_message (str): The success message to display.
+        """
+        success_text = Text(success_message, style="green")
+        panel = Panel(
+            success_text,
+            title="Success",
+            border_style="green",
             padding=(0, 1)
         )
         self.console.print(panel)
@@ -112,7 +128,7 @@ class TerminalInterface:
         goodbye_text = Text("Thank you for using Azure Infrastructure Agent!", style="bold blue")
         panel = Panel(
             goodbye_text,
-            title="👋 Goodbye",
+            title="Goodbye",
             border_style="blue",
             padding=(0, 1)
         )

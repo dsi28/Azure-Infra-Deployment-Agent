@@ -53,6 +53,25 @@ class ValidationResult(BaseModel):
     warnings: List[str] = Field(default_factory=list)
 
 
+class ResourceRequest(BaseModel):
+    """Request for resource processing."""
+    
+    resource_type: str
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+
+class ResourceResponse(BaseModel):
+    """Response from resource processing."""
+    
+    success: bool
+    resource_type: str
+    message: str
+    configuration: Optional[Any] = None
+    validation_result: Optional[Any] = None
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+
 class BaseResource(ABC):
     """
     Abstract base class for all Azure resources.

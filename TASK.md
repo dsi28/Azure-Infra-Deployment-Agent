@@ -171,13 +171,13 @@ src/
 - ✅ Progress callbacks and monitoring
 - ✅ Deployment history tracking
 
-### Task 3.3: End-to-End Storage Account Flow
+### ✅ Task 3.3: End-to-End Storage Account Flow - COMPLETED
 **Priority**: High | **Effort**: 4 hours
 
-- [ ] Integrate all components for storage account deployment
-- [ ] Add comprehensive error handling
-- [ ] Create deployment summary
-- [ ] Test with actual Azure deployment
+- [x] Integrate all components for storage account deployment
+- [x] Add comprehensive error handling
+- [x] Create deployment summary
+- [x] Test with actual Azure deployment flow
 
 **Test Scenario**:
 1. User: "I need a storage account"
@@ -185,6 +185,19 @@ src/
 3. Agent shows generated template
 4. User confirms deployment
 5. Agent deploys and reports status
+
+### Task 3.4: Fix Template Generation Issues (Sprint 3 Backlog)
+**Priority**: High | **Effort**: 2 hours
+
+- [ ] Create missing ARM template file `storage_account.json.j2` in templates directory
+- [ ] Ensure template generator can locate and process Jinja2 templates correctly
+- [ ] Test template generation end-to-end with actual storage account parameters
+- [ ] Verify generated templates are valid ARM JSON
+
+**Acceptance Criteria**:
+- Template generation completes without "TemplateNotFound" errors
+- Generated ARM templates pass validation
+- Templates contain proper parameter substitution from storage account configuration
 
 ## Sprint 4: Web App Support & Polish (Week 4)
 

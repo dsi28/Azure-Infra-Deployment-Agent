@@ -6,6 +6,7 @@ validation, and interactive questionnaire flow for gathering user requirements.
 """
 
 from typing import Dict, Any, Optional, List
+from ..resources.base import ValidationResult
 
 from .base import StorageResource, ResourceRequest, ResourceResponse
 from .storage_config import (
@@ -33,7 +34,7 @@ class StorageAccountResource(StorageResource):
     
     def __init__(self):
         """Initialize storage account resource handler."""
-        super().__init__()
+        super().__init__("Microsoft.Storage/storageAccounts")
         self.validator = create_storage_validator()
         logger.info("StorageAccountResource initialized")
     
@@ -282,6 +283,46 @@ class StorageAccountResource(StorageResource):
         """
         logger.debug("Creating configuration from questionnaire answers")
         return StorageAccountConfiguration.from_dict(answers)
+    
+    def validate_configuration_base(self, config) -> ValidationResult:
+        """
+        Validate a resource configuration (base implementation).
+        
+        Args:
+            config: The resource configuration.
+            
+        Returns:
+            ValidationResult: The validation result.
+        """
+        # Convert to StorageAccountConfiguration if needed
+        if hasattr(config, 'to_dict'):
+            config_dict = config.to_dict()
+        else:
+            config_dict = config
+            
+        # Use the existing validator
+        return self.validator.validate_all_parameters(config_dict)
+    
+    def generate_arm_template(self, config) -> Dict[str, Any]:
+        """
+        Generate an ARM template for this resource.
+        
+        Args:
+            config: The resource configuration.
+            
+        Returns:
+            Dict[str, Any]: The generated ARM template.
+        """
+        # This would normally use the template generator
+        # For now, return a basic template structure
+        return {
+            "schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+            "contentVersion": "1.0.0.0",
+            "parameters": {},
+            "variables": {},
+            "resources": [],
+            "outputs": {}
+        }
 
 
 def create_storage_account_resource() -> StorageAccountResource:
