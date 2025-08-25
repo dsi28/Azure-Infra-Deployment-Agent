@@ -556,14 +556,20 @@ class ARMDeployer:
                 logger.error(f"Failed to delete resource {resource_name}: {str(e)}")
 
 
-def create_arm_deployer(subscription_id: Optional[str] = None) -> ARMDeployer:
+def create_arm_deployer(subscription_id: Optional[str] = None, auth_result=None) -> ARMDeployer:
     """
     Factory function to create an ARM deployer instance.
     
     Args:
         subscription_id: Azure subscription ID (optional)
+        auth_result: Existing authentication result to reuse (optional)
         
     Returns:
         ARMDeployer instance
     """
-    return ARMDeployer(subscription_id)
+    deployer = ARMDeployer(subscription_id)
+    if auth_result:
+        deployer._auth_result = auth_result
+        # Force client recreation with the provided auth result
+        deployer.client = None
+    return deployer

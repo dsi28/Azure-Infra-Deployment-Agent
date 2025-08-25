@@ -207,3 +207,22 @@ def reload_settings() -> Settings:
     global settings
     settings = Settings()
     return settings
+
+
+def mask_subscription_id(subscription_id: Optional[str]) -> str:
+    """
+    Mask subscription ID to show only the last 4 characters.
+    
+    Args:
+        subscription_id: The subscription ID to mask
+        
+    Returns:
+        str: Masked subscription ID in format "****-xxxx" or "Unknown" if None
+    """
+    if not subscription_id:
+        return "Unknown"
+    
+    if len(subscription_id) <= 4:
+        return subscription_id
+    
+    return "****-" + subscription_id[-4:]

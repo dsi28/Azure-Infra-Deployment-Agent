@@ -27,6 +27,7 @@ from azure.mgmt.subscription import SubscriptionClient
 from pydantic import BaseModel, Field
 
 from ..config.logging import get_logger
+from ..config.settings import mask_subscription_id
 
 logger = get_logger(__name__)
 
@@ -42,6 +43,8 @@ class AuthenticationMethod(str, Enum):
 
 class AuthenticationResult(BaseModel):
     """Result of Azure authentication attempt."""
+    
+    model_config = {"arbitrary_types_allowed": True}
     
     success: bool = Field(description="Whether authentication was successful")
     method: Optional[AuthenticationMethod] = Field(
@@ -204,19 +207,32 @@ class AzureAuthenticator:
                     error_message="No Azure subscriptions found for the current user"
                 )
                 
-            # Get current subscription info
-            current_sub = subscriptions[0]  # Use first subscription as default
+            # Get current subscription info from Azure CLI
+            cli_account_info = self._get_azure_cli_user_info()
+            current_subscription_id = cli_account_info.get('subscription_id') if cli_account_info else None
+            
+            # Find the current subscription from the list
+            current_sub = None
+            if current_subscription_id:
+                for sub in subscriptions:
+                    if sub.subscription_id == current_subscription_id:
+                        current_sub = sub
+                        break
+            
+            # Fall back to first subscription if current one not found
+            if not current_sub:
+                current_sub = subscriptions[0]
             
             # Get additional user info from Azure CLI
-            user_info = self._get_azure_cli_user_info()
+            user_info = cli_account_info
             
-            logger.info(f"Successfully authenticated via Azure CLI for subscription: {current_sub.subscription_id}")
+            logger.info(f"Successfully authenticated via Azure CLI for subscription: {mask_subscription_id(current_sub.subscription_id)}")
             
             return AuthenticationResult(
                 success=True,
                 method=AuthenticationMethod.AZURE_CLI,
                 subscription_id=current_sub.subscription_id,
-                tenant_id=current_sub.tenant_id,
+                tenant_id=getattr(current_sub, 'tenant_id', None),
                 user_info=user_info,
                 credential=credential
             )
@@ -275,7 +291,7 @@ class AzureAuthenticator:
                 
             current_sub = subscriptions[0]
             
-            logger.info(f"Successfully authenticated via Service Principal for subscription: {current_sub.subscription_id}")
+            logger.info(f"Successfully authenticated via Service Principal for subscription: {mask_subscription_id(current_sub.subscription_id)}")
             
             return AuthenticationResult(
                 success=True,
@@ -316,13 +332,13 @@ class AzureAuthenticator:
                 
             current_sub = subscriptions[0]
             
-            logger.info(f"Successfully authenticated via Managed Identity for subscription: {current_sub.subscription_id}")
+            logger.info(f"Successfully authenticated via Managed Identity for subscription: {mask_subscription_id(current_sub.subscription_id)}")
             
             return AuthenticationResult(
                 success=True,
                 method=AuthenticationMethod.MANAGED_IDENTITY,
                 subscription_id=current_sub.subscription_id,
-                tenant_id=current_sub.tenant_id,
+                tenant_id=getattr(current_sub, 'tenant_id', None),
                 user_info={"managed_identity": True},
                 credential=credential
             )
@@ -357,13 +373,13 @@ class AzureAuthenticator:
                 
             current_sub = subscriptions[0]
             
-            logger.info(f"Successfully authenticated via DefaultAzureCredential for subscription: {current_sub.subscription_id}")
+            logger.info(f"Successfully authenticated via DefaultAzureCredential for subscription: {mask_subscription_id(current_sub.subscription_id)}")
             
             return AuthenticationResult(
                 success=True,
                 method=AuthenticationMethod.DEFAULT,
                 subscription_id=current_sub.subscription_id,
-                tenant_id=current_sub.tenant_id,
+                tenant_id=getattr(current_sub, 'tenant_id', None),
                 user_info={"default_credential": True},
                 credential=credential
             )
@@ -434,6 +450,7 @@ class AzureAuthenticator:
                 return {
                     "name": account_info.get("user", {}).get("name"),
                     "type": account_info.get("user", {}).get("type"),
+                    "subscription_id": account_info.get("id"),
                     "subscription_name": account_info.get("name"),
                     "environment_name": account_info.get("environmentName"),
                 }
@@ -487,11 +504,11 @@ class AzureAuthenticator:
             # This will raise an exception if subscription is not accessible
             list(resource_client.resource_groups.list())
             
-            logger.info(f"Successfully validated access to subscription: {subscription_id}")
-            return True, f"Access validated for subscription: {subscription_id}"
+            logger.info(f"Successfully validated access to subscription: {mask_subscription_id(subscription_id)}")
+            return True, f"Access validated for subscription: {mask_subscription_id(subscription_id)}"
             
         except Exception as e:
-            error_msg = f"Access denied to subscription {subscription_id}: {str(e)}"
+            error_msg = f"Access denied to subscription {mask_subscription_id(subscription_id)}: {str(e)}"
             logger.error(error_msg)
             return False, error_msg
             
@@ -520,10 +537,18 @@ class AzureAuthenticator:
             subscriptions = []
             
             for sub in subscription_client.subscriptions.list():
+                # Handle state - could be string or enum
+                state_value = "Unknown"
+                if hasattr(sub, 'state') and sub.state:
+                    if hasattr(sub.state, 'value'):
+                        state_value = sub.state.value
+                    else:
+                        state_value = str(sub.state)
+                
                 subscriptions.append({
                     "id": sub.subscription_id,
                     "name": sub.display_name,
-                    "state": sub.state.value if sub.state else "Unknown"
+                    "state": state_value
                 })
                 
             logger.info(f"Found {len(subscriptions)} available subscriptions")

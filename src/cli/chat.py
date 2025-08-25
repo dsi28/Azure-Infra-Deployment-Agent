@@ -140,6 +140,7 @@ class ChatManager:
             from ..templates.storage_template_generator import create_storage_template_generator
             from ..deployers.arm_deployer import create_arm_deployer, DeploymentConfig
             from ..auth.azure_auth import AzureAuthenticator
+            from ..config.settings import mask_subscription_id
             import uuid
             from datetime import datetime
             
@@ -186,6 +187,7 @@ class ChatManager:
             from ..templates.storage_template_generator import create_storage_template_generator
             from ..deployers.arm_deployer import create_arm_deployer, DeploymentConfig
             from ..auth.azure_auth import AzureAuthenticator
+            from ..config.settings import mask_subscription_id
             import uuid
             
             self.interface.display_info("\n=== Storage Account Deployment Workflow ===")
@@ -198,7 +200,39 @@ class ChatManager:
             if not auth_result.success:
                 return f"Authentication failed: {auth_result.error_message}\nPlease run 'az login' and try again."
             
-            self.interface.display_success(f"✓ Authenticated to subscription: {auth_result.subscription_id}")
+            self.interface.display_success(f"✓ Authenticated to subscription: {mask_subscription_id(auth_result.subscription_id)}")
+            
+            # Step 1.5: Subscription selection
+            current_sub_id = mask_subscription_id(auth_result.subscription_id)
+            self.interface.display_info(f"\nCurrent subscription: {current_sub_id}")
+            if auth_result.user_info and auth_result.user_info.get('subscription_name'):
+                self.interface.display_info(f"Subscription name: {auth_result.user_info['subscription_name']}")
+                
+            # Show available subscriptions and allow selection
+            self.interface.display_info("Getting available subscriptions...")
+            available_subs = auth.get_available_subscriptions(auth_result)
+            
+            if not available_subs:
+                self.interface.display_info("Could not retrieve subscription list. Continuing with current subscription...")
+            elif len(available_subs) > 1:
+                self.interface.display_info("\nAvailable subscriptions:")
+                for i, sub in enumerate(available_subs, 1):
+                    marker = " (current)" if sub['id'] == auth_result.subscription_id else ""
+                    self.interface.display_info(f"  {i}. ({mask_subscription_id(sub['id'])}){marker}")
+                
+                selection = input(f"\nEnter subscription number (1-{len(available_subs)}) or press Enter to use current: ").strip()
+                
+                if selection and selection.isdigit():
+                    selected_index = int(selection) - 1
+                    if 0 <= selected_index < len(available_subs):
+                        selected_sub = available_subs[selected_index]
+                        # Update auth_result with selected subscription
+                        auth_result.subscription_id = selected_sub['id']
+                        if auth_result.user_info:
+                            auth_result.user_info['subscription_name'] = selected_sub['name']
+                        self.interface.display_success(f"✓ Using subscription: {selected_sub['name']} ({mask_subscription_id(selected_sub['id'])})")
+                    else:
+                        return "Invalid subscription number selected."
             
             # Step 2: Collect resource parameters
             self.interface.display_info("\nStep 2: Collecting storage account parameters...")
@@ -227,19 +261,73 @@ class ChatManager:
             
             self.interface.display_success("✓ ARM template generated successfully")
             
-            # Step 4: Show template preview and get confirmation
-            self.interface.display_info("\nStep 4: Template preview...")
-            preview = template_generator.preview_template(config)
-            print(preview)
+            # Step 4: Show deployment confirmation with all details
+            self.interface.display_info("\nStep 4: Deployment confirmation...")
             
-            confirm = input("\nDo you want to proceed with deployment? (y/N): ").strip().lower()
-            if confirm != 'y' and confirm != 'yes':
-                return "Deployment cancelled by user."
+            confirmation_details = [
+                "\n" + "=" * 60,
+                "DEPLOYMENT CONFIRMATION",
+                "=" * 60,
+                f"Subscription ID: {mask_subscription_id(auth_result.subscription_id)}",
+                f"Storage Account Name: {config.name}",
+                f"Resource Group: {config.resource_group}",
+                f"Location: {config.location}",
+                f"Performance Tier: {config.performance_tier}",
+                f"Replication Type: {config.replication_type}",
+                f"Access Tier: {config.access_tier}",
+                f"Account Kind: {config.kind}",
+                f"HTTPS Only: {config.enable_https_only}",
+                f"Hierarchical Namespace: {config.enable_hierarchical_namespace}",
+                "=" * 60
+            ]
+            
+            for line in confirmation_details:
+                print(line)
+            
+            while True:
+                action = input("\nChoose an action:\n1. Proceed with deployment (y)\n2. Modify parameters (m)\n3. Cancel (n)\nEnter choice (y/m/n): ").strip().lower()
+                
+                if action in ['y', 'yes', '1']:
+                    break  # Proceed with deployment
+                elif action in ['n', 'no', '3']:
+                    return "Deployment cancelled by user."
+                elif action in ['m', 'modify', '2']:
+                    # Allow parameter modification
+                    config = self._modify_storage_config(config)
+                    if config is None:
+                        return "Deployment cancelled by user."
+                    
+                    # Regenerate template with new config
+                    generated_template = template_generator.generate_template(config)
+                    self.interface.display_success("✓ Template regenerated with new parameters")
+                    
+                    # Show updated confirmation
+                    confirmation_details = [
+                        "\n" + "=" * 60,
+                        "UPDATED DEPLOYMENT CONFIRMATION",
+                        "=" * 60,
+                        f"Subscription ID: {mask_subscription_id(auth_result.subscription_id)}",
+                        f"Storage Account Name: {config.name}",
+                        f"Resource Group: {config.resource_group}",
+                        f"Location: {config.location}",
+                        f"Performance Tier: {config.performance_tier}",
+                        f"Replication Type: {config.replication_type}",
+                        f"Access Tier: {config.access_tier}",
+                        f"Account Kind: {config.kind}",
+                        f"HTTPS Only: {config.enable_https_only}",
+                        f"Hierarchical Namespace: {config.enable_hierarchical_namespace}",
+                        "=" * 60
+                    ]
+                    
+                    for line in confirmation_details:
+                        print(line)
+                else:
+                    print("Invalid choice. Please enter 'y', 'm', or 'n'.")
             
             # Step 5: Deploy to Azure
-            self.interface.display_info("\nStep 5: Deploying to Azure...")
+            self.interface.display_info(f"\nStep 5: Deploying to Azure (Subscription: {mask_subscription_id(auth_result.subscription_id)})...")
             
-            deployer = create_arm_deployer(auth_result.subscription_id)
+            deployer = create_arm_deployer(auth_result.subscription_id, auth_result)
             
             deployment_config = DeploymentConfig(
                 deployment_name=f"storage-{config.name}-{uuid.uuid4().hex[:8]}",
@@ -310,3 +398,60 @@ class ChatManager:
         ]
         
         return "\n".join(summary_lines)
+    
+    def _modify_storage_config(self, config):
+        """
+        Allow user to modify storage configuration parameters.
+        
+        Args:
+            config: Current storage configuration
+            
+        Returns:
+            Modified configuration or None if cancelled
+        """
+        print("\nWhich parameter would you like to modify?")
+        print("1. Storage Account Name")
+        print("2. Resource Group")  
+        print("3. Location")
+        print("4. Performance Tier")
+        print("5. Replication Type")
+        print("6. Access Tier")
+        print("7. Cancel modifications")
+        
+        choice = input("\nEnter choice (1-7): ").strip()
+        
+        if choice == '1':
+            new_name = input(f"Enter new storage account name (current: {config.name}): ").strip()
+            if new_name:
+                config.name = new_name
+        elif choice == '2':
+            new_rg = input(f"Enter new resource group (current: {config.resource_group}): ").strip()
+            if new_rg:
+                config.resource_group = new_rg
+        elif choice == '3':
+            print("Available locations: eastus, westus, centralus, westeurope, eastasia")
+            new_location = input(f"Enter new location (current: {config.location}): ").strip()
+            if new_location:
+                config.location = new_location
+        elif choice == '4':
+            print("Performance tiers: Standard, Premium")
+            new_perf = input(f"Enter new performance tier (current: {config.performance_tier}): ").strip()
+            if new_perf and new_perf.lower() in ['standard', 'premium']:
+                config.performance_tier = new_perf.title()
+        elif choice == '5':
+            print("Replication types: LRS, GRS, ZRS, RA-GRS, RA-ZRS")
+            new_repl = input(f"Enter new replication type (current: {config.replication_type}): ").strip()
+            if new_repl and new_repl.upper() in ['LRS', 'GRS', 'ZRS', 'RA-GRS', 'RA-ZRS']:
+                config.replication_type = new_repl.upper()
+        elif choice == '6':
+            print("Access tiers: Hot, Cool, Archive")
+            new_access = input(f"Enter new access tier (current: {config.access_tier}): ").strip()
+            if new_access and new_access.lower() in ['hot', 'cool', 'archive']:
+                config.access_tier = new_access.title()
+        elif choice == '7':
+            return config
+        else:
+            print("Invalid choice.")
+            return config
+            
+        return config
