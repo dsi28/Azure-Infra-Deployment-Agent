@@ -1,0 +1,9 @@
+# Simple Agent Dependencies - All Free/Local
+requests>=2.31.0  # For Ollama API calls
+langchain-community>=0.0.10  # Free version only - basic agent patterns
+
+# Optional: For enhanced JSON handling
+pydantic>=2.0.0  # Already in main requirements
+
+# Development/Testing (optional)
+pytest>=7.0.0  # For testing
