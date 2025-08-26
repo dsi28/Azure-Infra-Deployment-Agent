@@ -16,15 +16,50 @@ Transform the existing Azure Infrastructure workflow tool into a simple, intelli
 ## Architecture Overview
 
 ```
+                    ┌─────────────────┐
+                    │      User       │
+                    │  Conversation   │
+                    └─────────┬───────┘
+                              │
+                              ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Chat Interface│───▶│ Storage Agent    │───▶│ Decision Engine │
-│                 │    │   (Local LLM)    │    │  (Rule-Based)   │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                │                         │
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│ Local Memory    │◀───│ Storage Config   │◀───│ Existing ARM    │
-│ (JSON Files)    │    │ Builder          │    │ Deployer        │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
+│ JSON Memory     │◀──▶│ Ollama LLM       │───▶│ Use Case        │
+│ - User Prefs    │    │ (llama3.2:3b)    │    │ Detector        │
+│ - Chat History  │    │                  │    │                 │
+│ - Learning Data │    └──────────────────┘    └─────────┬───────┘
+└─────────────────┘             │                       │
+        ▲                       │                       ▼
+        │                       ▼                ┌─────────────────┐
+        │                ┌──────────────────┐    │ Storage Decision│
+        │                │ Storage          │◀───│ Rules Engine    │
+        │                │ Conversation     │    │                 │
+        │                │ Manager          │    └─────────┬───────┘
+        │                └──────────────────┘              │
+        │                       │                         ▼
+        │                       │                ┌─────────────────┐
+        │                       │                │ Configuration   │
+        │                       │                │ Suggestions     │
+        │                       │                └─────────┬───────┘
+        │                       │                          │
+        │                       │                          ▼
+        │                       │                ┌─────────────────┐
+        │                       │                │ Config Ready    │
+        │                       │                │ for Deployment  │
+        │                       │                │ (Agent Output)  │
+        │                       │                └─────────┬───────┘
+        │                       │                          │
+        │                       │                          ▼
+        │                       │                ┌─────────────────┐
+        └───────────────────────┼───────────────▶│ Simple Feedback │
+                                │                │ Learning System │
+                                │                └─────────────────┘
+                                ▼
+                        ┌─────────────────┐
+                        │ Conversation    │
+                        │ State Machine   │
+                        │ (help, status,  │
+                        │  restart, exit) │
+                        └─────────────────┘
 ```
 
 ### Simple Agent Components
