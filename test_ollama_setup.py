@@ -34,7 +34,7 @@ def test_ollama_availability():
         print("To install and start Ollama:")
         print("1. Visit: https://ollama.ai")
         print("2. Download and install Ollama")
-        print("3. Run: ollama pull llama3.1")
+        print("3. Run: ollama pull llama3.2:3b")
         print("4. Ollama should start automatically")
         return False
         
@@ -44,7 +44,7 @@ def test_ollama_availability():
     
     if not models:
         print("\n! No models found.")
-        print("Run: ollama pull llama3.1")
+        print("Run: ollama pull llama3.2:3b")
         return False
         
     return True
@@ -78,7 +78,8 @@ def test_storage_prompts():
     print("Testing Storage Prompts")
     print("=" * 50)
     
-    client = create_ollama_client()
+    # Use longer timeout for complex storage prompts
+    client = create_ollama_client(timeout=90)
     
     # Test storage agent system prompt
     test_request = "I need storage for my blog images"

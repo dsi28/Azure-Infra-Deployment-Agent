@@ -10,13 +10,13 @@ from click.testing import CliRunner
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from main import main
+from src.main import main
 
 
 class TestMain:
     """Test cases for main module."""
 
-    @patch('main.ChatManager')
+    @patch('src.main.ChatManager')
     def test_main_starts_chat_manager(self, mock_chat_manager_class):
         """
         Test that main function creates and starts ChatManager.
@@ -46,7 +46,7 @@ class TestMain:
         assert "Azure Infrastructure Agent" in result.output
         assert "1.0.0" in result.output
 
-    @patch('main.ChatManager', side_effect=Exception("ChatManager failed"))
+    @patch('src.main.ChatManager', side_effect=Exception("ChatManager failed"))
     def test_main_handles_chat_manager_failure(self, mock_chat_manager_class):
         """
         Test behavior when ChatManager initialization fails.

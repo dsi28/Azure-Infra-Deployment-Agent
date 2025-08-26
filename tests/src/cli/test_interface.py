@@ -9,7 +9,7 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
 
-from cli.interface import TerminalInterface
+from src.cli.interface import TerminalInterface
 
 
 class TestTerminalInterface:
@@ -25,7 +25,7 @@ class TestTerminalInterface:
         assert hasattr(interface, 'console')
         assert interface.console is not None
     
-    @patch('cli.interface.Console')
+    @patch('src.cli.interface.Console')
     def test_display_welcome_prints_panel(self, mock_console_class):
         """
         Test that display_welcome prints a welcome panel.
@@ -43,7 +43,7 @@ class TestTerminalInterface:
         call_args = mock_console.print.call_args[0]
         assert len(call_args) == 1
     
-    @patch('cli.interface.Prompt.ask')
+    @patch('src.cli.interface.Prompt.ask')
     def test_get_user_input_returns_string(self, mock_ask):
         """
         Test that get_user_input returns user input string.
@@ -58,7 +58,7 @@ class TestTerminalInterface:
         assert result == "test input"
         mock_ask.assert_called_once()
     
-    @patch('cli.interface.Console')
+    @patch('src.cli.interface.Console')
     def test_display_agent_response_with_message(self, mock_console_class):
         """
         Test that display_agent_response prints formatted message.
@@ -73,7 +73,7 @@ class TestTerminalInterface:
         
         mock_console.print.assert_called_once()
     
-    @patch('cli.interface.Console')
+    @patch('src.cli.interface.Console')
     def test_display_error_with_empty_message(self, mock_console_class):
         """
         Test that display_error handles empty error message.
@@ -88,8 +88,8 @@ class TestTerminalInterface:
         
         mock_console.print.assert_called_once()
     
-    @patch('cli.interface.Console')
-    @patch('cli.interface.Panel', side_effect=Exception("Panel creation failed"))
+    @patch('src.cli.interface.Console')
+    @patch('src.cli.interface.Panel', side_effect=Exception("Panel creation failed"))
     def test_display_info_handles_panel_failure(self, mock_panel, mock_console_class):
         """
         Test behavior when Panel creation fails.

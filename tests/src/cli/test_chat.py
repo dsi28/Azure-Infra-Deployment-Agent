@@ -10,14 +10,14 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src"))
 
-from cli.chat import ChatManager
+from src.cli.chat import ChatManager
 
 
 class TestChatManager:
     """Test cases for ChatManager class."""
     
-    @patch('cli.chat.TerminalInterface')
-    @patch('cli.chat.signal.signal')
+    @patch('src.cli.chat.TerminalInterface')
+    @patch('src.cli.chat.signal.signal')
     def test_init_sets_up_interface_and_signals(self, mock_signal, mock_interface_class):
         """
         Test that initialization creates interface and sets up signal handlers.
@@ -34,7 +34,7 @@ class TestChatManager:
         # Verify signal handler was set up
         mock_signal.assert_called_once_with(signal.SIGINT, chat_manager._signal_handler)
     
-    @patch('cli.chat.TerminalInterface')
+    @patch('src.cli.chat.TerminalInterface')
     def test_start_displays_welcome_and_starts_loop(self, mock_interface_class):
         """
         Test that start displays welcome and begins conversation loop.
@@ -52,7 +52,7 @@ class TestChatManager:
         
         mock_interface.display_welcome.assert_called_once()
     
-    @patch('cli.chat.TerminalInterface')
+    @patch('src.cli.chat.TerminalInterface')
     def test_stop_sets_running_false_and_shows_goodbye(self, mock_interface_class):
         """
         Test that stop sets running flag and displays goodbye.
@@ -68,7 +68,7 @@ class TestChatManager:
         assert chat_manager.running is False
         mock_interface.display_goodbye.assert_called_once()
     
-    @patch('cli.chat.TerminalInterface')
+    @patch('src.cli.chat.TerminalInterface')
     def test_is_exit_command_recognizes_quit_variants(self, mock_interface_class):
         """
         Test that is_exit_command recognizes various exit commands.
@@ -86,7 +86,7 @@ class TestChatManager:
         assert chat_manager._is_exit_command("hello") is False
         assert chat_manager._is_exit_command("") is False
     
-    @patch('cli.chat.TerminalInterface')
+    @patch('src.cli.chat.TerminalInterface')
     def test_process_user_input_handles_empty_input(self, mock_interface_class):
         """
         Test that process_user_input handles empty user input appropriately.
@@ -101,7 +101,7 @@ class TestChatManager:
         assert isinstance(result, str)
         assert len(result) > 0
     
-    @patch('cli.chat.TerminalInterface')
+    @patch('src.cli.chat.TerminalInterface')
     def test_signal_handler_calls_stop(self, mock_interface_class):
         """
         Test that signal handler properly calls stop method.
@@ -120,7 +120,7 @@ class TestChatManager:
         mock_interface.display_info.assert_called_once()
         assert chat_manager.running is False
     
-    @patch('cli.chat.TerminalInterface')
+    @patch('src.cli.chat.TerminalInterface')
     def test_conversation_loop_exits_on_quit(self, mock_interface_class):
         """
         Test that conversation loop exits when user types quit.

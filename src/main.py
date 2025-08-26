@@ -31,7 +31,7 @@ def main(agent: bool) -> None:
         if agent:
             # Use new agent mode with local LLM
             click.echo("🤖 Starting Azure Storage Agent (Agent Mode)")
-            click.echo("💡 Requires Ollama with llama3.1 model installed")
+            click.echo("💡 Requires Ollama with llama3.2:3b model installed")
             click.echo("🔄 Fallback to workflow mode available if needed")
             click.echo("-" * 60)
             

@@ -87,7 +87,7 @@ class SimpleAgent:
         if not self.is_available():
             return AgentResponse(
                 message="Hello! I'm your Azure Storage Agent, but I'm currently unavailable. "
-                       "Please ensure Ollama is running with a model installed (ollama pull llama3.1), "
+                       "Please ensure Ollama is running with a model installed (ollama pull llama3.2:3b), "
                        "or I can fall back to workflow mode to help you.",
                 success=False,
                 error_message="LLM service unavailable"

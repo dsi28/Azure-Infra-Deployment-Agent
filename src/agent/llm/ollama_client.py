@@ -31,7 +31,7 @@ class OllamaClient:
     Ollama models with graceful fallback when service is unavailable.
     """
     
-    def __init__(self, base_url: str = "http://localhost:11434", timeout: int = 30):
+    def __init__(self, base_url: str = "http://localhost:11434", timeout: int = 60):
         """
         Initialize Ollama client.
         
@@ -79,7 +79,7 @@ class OllamaClient:
             
         return []
         
-    def chat(self, message: str, model: str = "llama3.1", system_prompt: Optional[str] = None) -> OllamaResponse:
+    def chat(self, message: str, model: str = "llama3.2:3b", system_prompt: Optional[str] = None) -> OllamaResponse:
         """
         Send chat message to Ollama model.
         
@@ -160,7 +160,7 @@ class OllamaClient:
                 error_message=error_msg
             )
             
-    def generate(self, prompt: str, model: str = "llama3.1") -> OllamaResponse:
+    def generate(self, prompt: str, model: str = "llama3.2:3b") -> OllamaResponse:
         """
         Generate text completion using Ollama model.
         
@@ -224,11 +224,14 @@ class OllamaClient:
             )
 
 
-def create_ollama_client() -> OllamaClient:
+def create_ollama_client(timeout: int = 60) -> OllamaClient:
     """
     Factory function to create Ollama client.
+    
+    Args:
+        timeout (int): Request timeout in seconds. Default: 60
     
     Returns:
         OllamaClient: Configured Ollama client instance.
     """
-    return OllamaClient()
+    return OllamaClient(timeout=timeout)

@@ -306,7 +306,7 @@ class WorkflowMode:
         print("🔧 This would integrate with your existing workflow system")
         print("💡 For now, please use your existing CLI workflow")
         print("\n✅ Agent mode will be available when Ollama is running")
-        print("🚀 Run: ollama pull llama3.1")
+        print("🚀 Run: ollama pull llama3.2:3b")
         print("🔄 Then restart with --agent flag")
 
 

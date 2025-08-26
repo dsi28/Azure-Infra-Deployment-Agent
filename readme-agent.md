@@ -67,7 +67,7 @@ requirements-agent-simple.txt # Free dependencies only
 
 1. Visit [https://ollama.ai](https://ollama.ai)
 2. Download and install Ollama for your platform
-3. Pull a model: `ollama pull llama3.1`
+3. Pull a model: `ollama pull llama3.2:3b`
 4. Ollama will start automatically
 
 ### 2. Install Python Dependencies
@@ -281,7 +281,7 @@ python -m src.main
 
 ```
 🤖 Starting Azure Storage Agent (Agent Mode)
-💡 Requires Ollama with llama3.1 model installed
+💡 Requires Ollama with llama3.2:3b model installed
 🔄 Fallback to workflow mode available if needed
 ------------------------------------------------------------
 
@@ -439,7 +439,7 @@ If you see "Ollama service is not available":
 1. Check if Ollama is installed: `ollama --version`
 2. Check if Ollama is running: `ollama list`
 3. Start Ollama if needed (usually starts automatically)
-4. Ensure a model is installed: `ollama pull llama3.1`
+4. Ensure a model is installed: `ollama pull llama3.2:3b`
 
 ### Connection Issues
 

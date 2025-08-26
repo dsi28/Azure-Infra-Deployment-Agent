@@ -20,7 +20,7 @@ class TestOllamaClient:
     def test_initialization(self):
         """Test client initialization with default values."""
         assert self.client.base_url == "http://localhost:11434"
-        assert self.client.timeout == 30
+        assert self.client.timeout == 60
         assert self.client._available_models is None
     
     def test_initialization_custom_values(self):
@@ -62,7 +62,7 @@ class TestOllamaClient:
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "models": [
-                {"name": "llama3.1"},
+                {"name": "llama3.2:3b"},
                 {"name": "mistral"}
             ]
         }
@@ -72,8 +72,8 @@ class TestOllamaClient:
         with patch.object(self.client, 'is_available', return_value=True):
             models = self.client.list_models()
             
-        assert models == ["llama3.1", "mistral"]
-        assert self.client._available_models == ["llama3.1", "mistral"]
+        assert models == ["llama3.2:3b", "mistral"]
+        assert self.client._available_models == ["llama3.2:3b", "mistral"]
     
     @patch('requests.get')
     def test_list_models_unavailable(self, mock_get):
@@ -99,7 +99,7 @@ class TestOllamaClient:
             
         assert response.success is True
         assert response.content == "Hello! I can help with Azure storage."
-        assert response.model == "llama3.1"
+        assert response.model == "llama3.2:3b"
         assert response.error_message is None
     
     def test_chat_unavailable(self):
@@ -190,12 +190,12 @@ class TestOllamaResponse:
         """Test OllamaResponse creation."""
         response = OllamaResponse(
             content="test content",
-            model="llama3.1",
+            model="llama3.2:3b",
             success=True
         )
         
         assert response.content == "test content"
-        assert response.model == "llama3.1"
+        assert response.model == "llama3.2:3b"
         assert response.success is True
         assert response.error_message is None
     
@@ -203,7 +203,7 @@ class TestOllamaResponse:
         """Test OllamaResponse with error."""
         response = OllamaResponse(
             content="",
-            model="llama3.1", 
+            model="llama3.2:3b", 
             success=False,
             error_message="Connection failed"
         )

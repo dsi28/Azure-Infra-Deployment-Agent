@@ -1,0 +1,17 @@
+{
+  "conversations": [
+    {
+      "type": "deployment",
+      "timestamp": "2025-08-26T11:17:52.638720",
+      "deployment": {
+        "success": true,
+        "use_case": "log",
+        "access_tier": "Archive",
+        "performance_tier": "Standard",
+        "replication_type": "LRS",
+        "user_confirmed": true
+      }
+    }
+  ],
+  "last_updated": "2025-08-26T11:17:52.639722"
+}

@@ -224,7 +224,7 @@ Agent: "Deploying ecommerce-product-images storage account... ✓ Complete!"
 
 ### Prerequisites
 1. Install Ollama: https://ollama.ai
-2. Download model: `ollama pull llama3.1`
+2. Download model: `ollama pull llama3.2:3b`
 3. Install Python dependencies: `pip install -r requirements-agent-simple.txt`
 
 ### Running Agent Mode

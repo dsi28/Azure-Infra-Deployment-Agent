@@ -14,7 +14,7 @@ from src.resources.storage_account import (
     create_storage_account_resource
 )
 from src.resources.storage_config import StorageAccountConfiguration
-from src.resources.base import ResourceType, ResourceRequest, ResourceResponse
+from src.resources.base import ResourceRequest, ResourceResponse, ResourceStatus
 from src.resources.validation_result import ValidationResult
 
 
@@ -140,7 +140,7 @@ class TestStorageAccountResource:
         """Test StorageAccountResource initialization."""
         resource = StorageAccountResource()
         
-        assert resource.resource_type == ResourceType.STORAGE_ACCOUNT
+        assert resource.resource_type == "Microsoft.Storage/storageAccounts"
         assert hasattr(resource, 'validator')
     
     @patch('src.resources.storage_account.create_storage_validator')
@@ -170,14 +170,14 @@ class TestStorageAccountResource:
             location="East US"
         )
         request = ResourceRequest(
-            resource_type=ResourceType.STORAGE_ACCOUNT,
+            resource_type="Microsoft.Storage/storageAccounts",
             parameters=config.to_dict()
         )
         
         response = self.resource.process(request)
         
         assert response.success is True
-        assert response.resource_type == ResourceType.STORAGE_ACCOUNT
+        assert response.resource_type == "Microsoft.Storage/storageAccounts"
         assert "Valid configuration" in response.message
         assert response.configuration is not None
         mock_validator.validate_all_parameters.assert_called_once()
@@ -193,7 +193,7 @@ class TestStorageAccountResource:
         
         # Create request with invalid config
         request = ResourceRequest(
-            resource_type=ResourceType.STORAGE_ACCOUNT,
+            resource_type="Microsoft.Storage/storageAccounts",
             parameters={"name": "invalid-name!"}
         )
         
@@ -222,7 +222,7 @@ class TestStorageAccountResource:
         with patch.object(self.resource, 'collect_parameters_interactively', return_value=complete_config):
             # Create incomplete request
             request = ResourceRequest(
-                resource_type=ResourceType.STORAGE_ACCOUNT,
+                resource_type="Microsoft.Storage/storageAccounts",
                 parameters={"name": "teststorage"}  # Missing required fields
             )
             
@@ -360,7 +360,7 @@ class TestCreateStorageAccountResource:
         resource = create_storage_account_resource()
         
         assert isinstance(resource, StorageAccountResource)
-        assert resource.resource_type == ResourceType.STORAGE_ACCOUNT
+        assert resource.resource_type == "Microsoft.Storage/storageAccounts"
     
     @patch('src.resources.storage_account.create_storage_validator')
     def test_create_storage_account_resource_with_validator(self, mock_validator):
@@ -392,7 +392,7 @@ class TestStorageAccountIntegration:
         
         # Create complete request
         request = ResourceRequest(
-            resource_type=ResourceType.STORAGE_ACCOUNT,
+            resource_type="Microsoft.Storage/storageAccounts",
             parameters={
                 "name": "teststorage123",
                 "resource_group": "test-resources",
@@ -405,7 +405,7 @@ class TestStorageAccountIntegration:
         response = self.resource.process(request)
         
         assert response.success is True
-        assert response.resource_type == ResourceType.STORAGE_ACCOUNT
+        assert response.resource_type == "Microsoft.Storage/storageAccounts"
         assert response.configuration is not None
         assert response.configuration.name == "teststorage123"
         assert response.configuration.resource_group == "test-resources"
@@ -423,7 +423,7 @@ class TestStorageAccountIntegration:
         
         # Create request with invalid parameters
         request = ResourceRequest(
-            resource_type=ResourceType.STORAGE_ACCOUNT,
+            resource_type="Microsoft.Storage/storageAccounts",
             parameters={
                 "name": "ab",  # Too short
                 "resource_group": "test-rg",
@@ -463,7 +463,7 @@ class TestStorageAccountIntegration:
         
         # Create incomplete request (missing required parameters)
         request = ResourceRequest(
-            resource_type=ResourceType.STORAGE_ACCOUNT,
+            resource_type="Microsoft.Storage/storageAccounts",
             parameters={}  # Empty parameters to trigger interactive
         )
         
@@ -526,7 +526,7 @@ class TestStorageAccountIntegration:
             
             # Create request
             request = ResourceRequest(
-                resource_type=ResourceType.STORAGE_ACCOUNT,
+                resource_type="Microsoft.Storage/storageAccounts",
                 parameters=scenario["params"]
             )
             
