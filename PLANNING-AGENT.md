@@ -15,6 +15,7 @@ Transform the existing Azure Infrastructure workflow tool into a simple, intelli
 
 ## Architecture Overview
 
+### Current MVP Architecture
 ```
                     ┌─────────────────┐
                     │      User       │
@@ -62,13 +63,79 @@ Transform the existing Azure Infrastructure workflow tool into a simple, intelli
                         └─────────────────┘
 ```
 
-### Simple Agent Components
+### Sprint 2: Enhanced Dual Decision Architecture
+```
+                    ┌─────────────────┐
+                    │      User       │
+                    │  Conversation   │
+                    └─────────┬───────┘
+                              │
+                              ▼
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│ Enhanced JSON   │◀──▶│ Ollama LLM       │───▶│ Use Case        │
+│ Memory          │    │ (llama3.2:3b)    │    │ Detector        │
+│ - User Prefs    │    │                  │    │                 │
+│ - Chat History  │    └──────────┬───────┘    └─────────┬───────┘
+│ - Learning Data │               │                      │
+│ - Rec Feedback  │               │                      ▼
+└─────────────────┘               │               ┌─────────────────┐
+        ▲                         │               │ Dual Decision   │
+        │                         │               │ Orchestrator    │
+        │                         │               └─────────┬───────┘
+        │                         │                         │
+        │                         ▼                         ▼
+        │                ┌──────────────────┐    ┌─────────────────┐
+        │                │ LLM Storage      │    │ Rules Storage   │
+        │                │ Advisor          │    │ Decision Engine │
+        │                │                  │    │                 │
+        │                └──────────┬───────┘    └─────────┬───────┘
+        │                           │                      │
+        │                           │                      │
+        │                           ▼                      ▼
+        │                    ┌─────────────────────────────────────┐
+        │                    │ Side-by-Side Recommendation        │
+        │                    │ Comparison Engine                   │
+        │                    │                                     │
+        │                    │ 🤖 AI Rec    vs    📋 Rules Rec   │
+        │                    └─────────────────┬───────────────────┘
+        │                                      │
+        │                                      ▼
+        │                             ┌─────────────────┐
+        │                             │ User Choice     │
+        │                             │ Collection UI   │
+        │                             └─────────┬───────┘
+        │                                       │
+        │                                       ▼
+        │                             ┌─────────────────┐
+        │                             │ Configuration   │
+        │                             │ Ready for       │
+        │                             │ Deployment      │
+        │                             └─────────┬───────┘
+        │                                       │
+        │                                       ▼
+        │                             ┌─────────────────┐
+        └─────────────────────────────│ Enhanced        │
+                                      │ Feedback &      │
+                                      │ Learning System │
+                                      └─────────────────┘
+```
+
+### Current MVP Components
 
 1. **Storage Agent (Local LLM)**: Ollama-based conversation and intent understanding
 2. **Decision Engine (Rule-Based)**: Simple rules for storage account configuration selection
 3. **Local Memory (JSON Files)**: File-based storage for user preferences and conversation history
 4. **Storage Config Builder**: Enhanced parameter selection with agent intelligence
 5. **Existing ARM Deployer**: Reuse current deployment infrastructure
+
+### Sprint 2: Enhanced Components
+
+1. **Dual Decision Orchestrator**: Coordinates both LLM and rule-based recommendation systems
+2. **LLM Storage Advisor**: Uses local Ollama with Azure expertise prompts for intelligent recommendations
+3. **Enhanced JSON Memory**: Extended to track recommendation preferences and feedback patterns
+4. **Side-by-Side Comparison Engine**: Presents both recommendations with clear reasoning
+5. **User Choice Collection UI**: Interactive interface for recommendation selection and feedback
+6. **Enhanced Feedback & Learning System**: Advanced pattern recognition for recommendation preferences
 
 ## Technology Stack (Free/Local Only)
 
@@ -180,18 +247,25 @@ Agent: "I'll switch to Cool tier - 30% cheaper for images accessed less than mon
 
 ## Implementation Phases
 
-### Phase 1: Simple Storage Agent (1 Week)
+### Phase 1: Simple Storage Agent (1 Week) ✅ COMPLETED
 - Set up Ollama with local LLM
 - Create basic conversation interface with storage focus
 - Implement JSON-based memory for user preferences
 - Add smart storage configuration suggestions
 - Integrate with existing ARM deployment system
 
+### Phase 2: Dual Recommendation System (Sprint 2) - NEXT
+- **Dual Decision Engine**: Implement LLM + Rules side-by-side recommendations
+- **Enhanced User Experience**: Interactive choice between recommendation types
+- **Advanced Learning**: Track preference patterns and recommendation effectiveness
+- **Improved Prompting**: Azure storage expertise embedded in LLM prompts
+- **Fallback Reliability**: Graceful handling when LLM unavailable
+
 ### Future Phases (Optional)
-- **Phase 2**: Enhanced conversation capabilities and better learning
-- **Phase 3**: Web interface for easier interaction
-- **Phase 4**: Migration to cloud-based LLMs if needed
-- **Phase 5**: Expansion to other Azure resources (keeping storage expertise)
+- **Phase 3**: Enhanced conversation capabilities and multi-turn context
+- **Phase 4**: Web interface for easier interaction
+- **Phase 5**: Migration to cloud-based LLMs if needed
+- **Phase 6**: Expansion to other Azure resources (keeping storage expertise)
 
 ## Success Metrics (MVP)
 

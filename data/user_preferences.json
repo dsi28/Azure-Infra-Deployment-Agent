@@ -24,6 +24,11 @@
       "tier": "Archive",
       "replication": "LRS",
       "performance": "Standard"
+    },
+    "database": {
+      "tier": "Hot",
+      "replication": "LRS",
+      "performance": "Standard"
     }
   }
 }

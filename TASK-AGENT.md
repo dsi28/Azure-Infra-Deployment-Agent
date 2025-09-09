@@ -165,9 +165,60 @@ USE_CASE_RULES = {
 - ✅ All existing functionality preserved
 - ✅ Comprehensive test coverage (649+ tests total)
 
-## Future Enhancements (Post-MVP)
+## Sprint 2: Dual Recommendation System (Next Sprint)
 
-### Enhancement 1: Better Conversation Flow
+### Enhancement 1: LLM + Rules Dual Decision Engine
+**Priority**: High | **Effort**: 8 hours | **Date Added**: 2025-09-09
+
+- [ ] Create LLM-based recommendation engine alongside existing rules
+- [ ] Implement side-by-side recommendation comparison UI
+- [ ] Add user choice tracking and preference learning
+- [ ] Build confidence scoring for both recommendation types
+
+**Files to Create**:
+- `src/agent/decision/llm_advisor.py` - LLM-based storage recommendations
+- `src/agent/decision/dual_recommender.py` - Orchestrate both recommendation systems
+- `src/agent/conversation/dual_recommendation_ui.py` - Present both options to user
+- `src/agent/learning/recommendation_feedback.py` - Track which recommendations users prefer
+
+**Implementation Tasks**:
+- [ ] Design LLM prompts with Azure storage expertise
+- [ ] Create structured output parsing for LLM recommendations
+- [ ] Build comparison UI showing both recommendations side-by-side
+- [ ] Implement user choice collection and feedback learning
+- [ ] Add fallback logic when LLM unavailable
+- [ ] Create comprehensive tests for dual recommendation scenarios
+
+**Example User Experience**:
+```
+User: "I need storage for high-traffic e-commerce product images"
+
+🤖 AI Recommendation:          📋 Rule-Based:
+- Hot tier                     - Hot tier  
+- Premium performance          - Standard performance
+- ZRS replication             - LRS replication
+- "High-traffic needs Premium" - "Cost-effective for images"
+
+Which would you prefer? (1) AI, (2) Rules, (3) Custom
+```
+
+**Acceptance Criteria**:
+- [ ] Both LLM and rule-based recommendations generated for same input
+- [ ] Clear side-by-side presentation of recommendations with reasoning
+- [ ] User can choose between recommendations or create custom config
+- [ ] System learns which recommendation type user prefers over time
+- [ ] Graceful handling when LLM is unavailable (fallback to rules only)
+- [ ] Performance remains under 15 seconds for dual recommendations
+
+**Learning Opportunities**:
+- [ ] Track recommendation acceptance rates (LLM vs Rules vs Custom)
+- [ ] Identify patterns where LLM outperforms rules and vice versa
+- [ ] Build user preference profiles for recommendation type selection
+- [ ] Create confidence adjustments based on historical performance
+
+## Future Enhancements (Post-Sprint 2)
+
+### Enhancement 2: Better Conversation Flow
 **Priority**: Medium | **Future Sprint**
 
 - [ ] Handle conversation interruptions and topic changes
@@ -175,7 +226,7 @@ USE_CASE_RULES = {
 - [ ] Implement conversation state persistence
 - [ ] Better context management for longer conversations
 
-### Enhancement 2: Advanced Learning
+### Enhancement 3: Advanced Learning
 **Priority**: Medium | **Future Sprint**
 
 - [ ] Pattern recognition in user preferences
@@ -183,7 +234,7 @@ USE_CASE_RULES = {
 - [ ] Performance recommendations based on access patterns
 - [ ] Integration with Azure cost management APIs
 
-### Enhancement 3: Enhanced Decision Making
+### Enhancement 4: Enhanced Decision Making
 **Priority**: Low | **Future Sprint**
 
 - [ ] Integration with Azure pricing APIs for cost estimates
