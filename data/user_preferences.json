@@ -20,13 +20,13 @@
       "tier": "Cool",
       "replication": "LRS"
     },
-    "log": {
-      "tier": "Archive",
+    "database": {
+      "tier": "Cool",
       "replication": "LRS",
       "performance": "Standard"
     },
-    "database": {
-      "tier": "Hot",
+    "log": {
+      "tier": "Archive",
       "replication": "LRS",
       "performance": "Standard"
     }

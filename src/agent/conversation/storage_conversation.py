@@ -11,13 +11,17 @@ from enum import Enum
 from datetime import datetime
 from ..core.simple_agent import SimpleAgent, AgentResponse, create_simple_agent
 from ..memory.user_profile import UserProfile
+from ..decision.dual_recommender import DualRecommendationEngine, create_dual_recommender
+from ..conversation.dual_recommendation_ui import DualRecommendationUI, UserChoice, create_dual_recommendation_ui
+from ..learning.recommendation_feedback import RecommendationPreferenceTracker, create_recommendation_tracker
 
 
 class ConversationState(Enum):
     """States in the storage conversation flow."""
     INITIAL = "initial"
     GATHERING_REQUIREMENTS = "gathering_requirements"
-    PRESENTING_RECOMMENDATION = "presenting_recommendation"
+    PRESENTING_DUAL_RECOMMENDATION = "presenting_dual_recommendation"
+    COLLECTING_USER_CHOICE = "collecting_user_choice"
     CONFIRMING_DEPLOYMENT = "confirming_deployment"
     MODIFYING_CONFIG = "modifying_config"
     COMPLETED = "completed"
@@ -60,6 +64,14 @@ class StorageConversation:
         self.agent = agent or create_simple_agent(data_dir)
         self.context = ConversationContext()
         self.conversation_history: List[Dict[str, Any]] = []
+        
+        # Initialize dual recommendation components
+        self.dual_engine = create_dual_recommender()
+        self.dual_ui = create_dual_recommendation_ui()
+        self.feedback_tracker = create_recommendation_tracker()
+        
+        # Store current dual recommendation for choice processing
+        self.current_dual_recommendation = None
         
     def start_new_conversation(self) -> AgentResponse:
         """
@@ -109,8 +121,10 @@ class StorageConversation:
             response = self._handle_initial_state(user_input)
         elif self.context.state == ConversationState.GATHERING_REQUIREMENTS:
             response = self._handle_requirements_gathering(user_input)
-        elif self.context.state == ConversationState.PRESENTING_RECOMMENDATION:
-            response = self._handle_recommendation_review(user_input)
+        elif self.context.state == ConversationState.PRESENTING_DUAL_RECOMMENDATION:
+            response = self._handle_dual_recommendation_presentation(user_input)
+        elif self.context.state == ConversationState.COLLECTING_USER_CHOICE:
+            response = self._handle_user_choice_collection(user_input)
         elif self.context.state == ConversationState.CONFIRMING_DEPLOYMENT:
             response = self._handle_deployment_confirmation(user_input)
         elif self.context.state == ConversationState.MODIFYING_CONFIG:
@@ -144,26 +158,47 @@ class StorageConversation:
                 message=self.agent.get_help_message()
             )
         
-        # Process storage request through agent
-        response = self.agent.process_message(user_input)
-        
-        if response.success and response.recommendation:
-            # We have a recommendation - move to presentation state
-            self.context.state = ConversationState.PRESENTING_RECOMMENDATION
-            self.context.current_recommendation = response.recommendation
+        # Get dual recommendation using both LLM and rules
+        try:
+            user_profile = self.agent.get_user_profile() if hasattr(self.agent, 'get_user_profile') else None
+            dual_rec = self.dual_engine.get_dual_recommendation(user_input, user_profile)
             
-            # Extract user requirements from the response context
-            if response.context_used:
-                self.context.user_requirements = {
-                    "detected_use_case": response.recommendation.detected_use_case,
-                    "confidence": response.recommendation.confidence,
-                    "keywords_found": response.context_used.get("detected_keywords", []),
-                    "context_hints": response.context_used.get("context_hints", {})
-                }
-        elif not response.success:
-            self.context.state = ConversationState.ERROR
+            # Store dual recommendation for choice processing
+            self.current_dual_recommendation = dual_rec
             
-        return response
+            # Present dual recommendations to user
+            self.dual_ui.present_dual_recommendations(dual_rec)
+            
+            # Move to choice collection state
+            self.context.state = ConversationState.COLLECTING_USER_CHOICE
+            
+            return AgentResponse(
+                message="Please review the recommendations above and make your choice.",
+                success=True,
+                requires_confirmation=False
+            )
+            
+        except Exception as e:
+            # Fallback to original agent processing
+            response = self.agent.process_message(user_input)
+            
+            if response.success and response.recommendation:
+                # We have a recommendation - move to presentation state
+                self.context.state = ConversationState.PRESENTING_DUAL_RECOMMENDATION
+                self.context.current_recommendation = response.recommendation
+                
+                # Extract user requirements from the response context
+                if response.context_used:
+                    self.context.user_requirements = {
+                        "detected_use_case": response.recommendation.detected_use_case,
+                        "confidence": response.recommendation.confidence,
+                        "keywords_found": response.context_used.get("detected_keywords", []),
+                        "context_hints": response.context_used.get("context_hints", {})
+                    }
+            elif not response.success:
+                self.context.state = ConversationState.ERROR
+                
+            return response
     
     def _handle_recommendation_review(self, user_input: str) -> AgentResponse:
         """
@@ -391,11 +426,106 @@ class StorageConversation:
         """
         active_states = [
             ConversationState.GATHERING_REQUIREMENTS,
-            ConversationState.PRESENTING_RECOMMENDATION,
+            ConversationState.PRESENTING_DUAL_RECOMMENDATION,
+            ConversationState.COLLECTING_USER_CHOICE,
             ConversationState.CONFIRMING_DEPLOYMENT,
             ConversationState.MODIFYING_CONFIG
         ]
         return self.context.state in active_states
+    
+    def _handle_dual_recommendation_presentation(self, user_input: str) -> AgentResponse:
+        """
+        Handle dual recommendation presentation state.
+        
+        Args:
+            user_input (str): User's response to dual recommendations.
+            
+        Returns:
+            AgentResponse: Response based on user's choice or feedback.
+        """
+        # This is primarily handled by the UI, redirect to choice collection
+        self.context.state = ConversationState.COLLECTING_USER_CHOICE
+        return self._handle_user_choice_collection(user_input)
+    
+    def _handle_user_choice_collection(self, user_input: str) -> AgentResponse:
+        """
+        Handle user choice collection for dual recommendations.
+        
+        Args:
+            user_input (str): User's choice input.
+            
+        Returns:
+            AgentResponse: Response after processing user choice.
+        """
+        if not self.current_dual_recommendation:
+            # No dual recommendation available, fallback to error
+            self.context.state = ConversationState.ERROR
+            return AgentResponse(
+                message="Sorry, I don't have any recommendations to show. Let's start over.",
+                success=False
+            )
+        
+        try:
+            # Get user choice through UI
+            choice, custom_config = self.dual_ui.get_user_choice(self.current_dual_recommendation)
+            
+            # Process the choice
+            if choice == UserChoice.CANCEL:
+                return AgentResponse(
+                    message="Configuration cancelled. Would you like to start over with a new storage request?",
+                    success=True
+                )
+            
+            # Determine final configuration based on choice
+            if choice == UserChoice.LLM and self.current_dual_recommendation.llm_recommendation:
+                final_config = {
+                    'tier': self.current_dual_recommendation.llm_recommendation.tier,
+                    'performance': self.current_dual_recommendation.llm_recommendation.performance,
+                    'replication': self.current_dual_recommendation.llm_recommendation.replication,
+                    'reasoning': self.current_dual_recommendation.llm_recommendation.reasoning
+                }
+            elif choice == UserChoice.RULES:
+                rules_rec = self.current_dual_recommendation.rules_recommendation
+                final_config = {
+                    'tier': rules_rec.tier,
+                    'performance': rules_rec.performance,
+                    'replication': rules_rec.replication,
+                    'reasoning': rules_rec.reasoning
+                }
+            else:
+                # Invalid choice
+                return AgentResponse(
+                    message="Invalid choice. Please try again.",
+                    success=False
+                )
+            
+            # Record feedback for learning
+            self.feedback_tracker.record_feedback(
+                self.current_dual_recommendation,
+                choice,
+                final_config
+            )
+            
+            # Show final selection
+            self.dual_ui.show_final_selection(choice, final_config)
+            
+            # Store the final configuration
+            self.context.current_recommendation = final_config
+            self.context.state = ConversationState.CONFIRMING_DEPLOYMENT
+            
+            return AgentResponse(
+                message="Configuration selected! Would you like me to deploy this storage account?",
+                success=True,
+                requires_confirmation=True,
+                recommendation=final_config
+            )
+            
+        except Exception as e:
+            self.context.state = ConversationState.ERROR
+            return AgentResponse(
+                message=f"Sorry, there was an error processing your choice: {str(e)}",
+                success=False
+            )
     
     def end_conversation(self) -> AgentResponse:
         """

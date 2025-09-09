@@ -2,7 +2,19 @@
   "conversations": [
     {
       "type": "deployment",
-      "timestamp": "2025-08-26T11:17:52.638720",
+      "timestamp": "2025-09-09T16:53:47.705848",
+      "deployment": {
+        "success": true,
+        "use_case": "database",
+        "access_tier": "Cool",
+        "performance_tier": "Standard",
+        "replication_type": "LRS",
+        "user_confirmed": true
+      }
+    },
+    {
+      "type": "deployment",
+      "timestamp": "2025-09-09T17:22:07.517201",
       "deployment": {
         "success": true,
         "use_case": "log",
@@ -11,19 +23,7 @@
         "replication_type": "LRS",
         "user_confirmed": true
       }
-    },
-    {
-      "type": "deployment",
-      "timestamp": "2025-09-09T09:11:40.338211",
-      "deployment": {
-        "success": true,
-        "use_case": "database",
-        "access_tier": "Hot",
-        "performance_tier": "Standard",
-        "replication_type": "LRS",
-        "user_confirmed": true
-      }
     }
   ],
-  "last_updated": "2025-09-09T09:11:40.338211"
+  "last_updated": "2025-09-09T17:22:07.517201"
 }
