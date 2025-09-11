@@ -27,6 +27,16 @@ class AzureSettings(BaseSettings):
     azure_cli_path: str = Field("az", env="AZURE_CLI_PATH")
 
 
+class OllamaSettings(BaseSettings):
+    """OLLAMA-specific configuration settings."""
+    
+    enabled: bool = Field(True, env="OLLAMA_ENABLED")
+    base_url: str = Field("http://localhost:11434", env="OLLAMA_BASE_URL")
+    model: str = Field("llama3.2:3b", env="OLLAMA_MODEL")
+    timeout: float = Field(10.0, env="OLLAMA_TIMEOUT")
+    confidence_threshold: float = Field(0.7, env="OLLAMA_CONFIDENCE_THRESHOLD")
+
+
 class AppSettings(BaseSettings):
     """Application-wide configuration settings."""
     
@@ -69,6 +79,7 @@ class Settings:
         """Initialize settings by loading from various sources."""
         self.app = AppSettings()
         self.azure = AzureSettings()
+        self.ollama = OllamaSettings()
         self._config_file_path = None
         self._load_config_file()
     
@@ -178,6 +189,7 @@ class Settings:
                 # Hide sensitive values
                 "client_secret": "***" if self.azure.client_secret else None
             },
+            "ollama": self.ollama.dict(),
             "config_file": self._config_file_path,
             "auth_method": self.get_auth_method()
         }

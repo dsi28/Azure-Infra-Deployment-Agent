@@ -230,7 +230,7 @@ class ChatManager:
                         auth_result.subscription_id = selected_sub['id']
                         if auth_result.user_info:
                             auth_result.user_info['subscription_name'] = selected_sub['name']
-                        self.interface.display_success(f"✓ Using subscription: {selected_sub['name']} ({mask_subscription_id(selected_sub['id'])})")
+                        self.interface.display_success(f"Using subscription: ({mask_subscription_id(selected_sub['id'])})")
                     else:
                         return "Invalid subscription number selected."
             

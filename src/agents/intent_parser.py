@@ -13,6 +13,7 @@ from enum import Enum
 from .base import IntentParserAgent, AgentRequest, AgentResponse
 from .entities import EntityExtractor, ExtractedEntities, EntityType
 from ..config.logging import get_logger
+from ..config.settings import get_settings
 
 logger = get_logger(__name__)
 
@@ -312,10 +313,12 @@ class IntentClassifier:
 
 class BasicIntentParser(IntentParserAgent):
     """
-    Basic implementation of intent parsing agent.
+    Enhanced implementation of intent parsing agent with optional OLLAMA integration.
     
-    This agent combines intent classification with entity extraction
-    to understand user requests for Azure infrastructure deployment.
+    This agent combines keyword-based intent classification with optional OLLAMA
+    enhancement and entity extraction to understand user requests for Azure
+    infrastructure deployment. OLLAMA provides natural language understanding
+    with graceful fallback to keyword-based classification.
     """
     
     def __init__(self, name: str = "BasicIntentParser", version: str = "1.0.0"):
@@ -330,15 +333,48 @@ class BasicIntentParser(IntentParserAgent):
         self.classifier = IntentClassifier()
         self.entity_extractor = EntityExtractor()
         
+        # Initialize OLLAMA classifier if available
+        self.ollama_classifier = None
+        self._initialize_ollama()
+        
         # Add supported intents
         for intent in Intent:
             self.add_intent(intent.value)
         
-        logger.info(f"BasicIntentParser initialized with {len(self.supported_intents)} supported intents")
+        enhancement_status = "with OLLAMA enhancement" if self.ollama_classifier and self.ollama_classifier.is_available() else "keyword-based only"
+        logger.info(f"BasicIntentParser initialized with {len(self.supported_intents)} supported intents ({enhancement_status})")
+    
+    def _initialize_ollama(self) -> None:
+        """Initialize OLLAMA classifier if enabled and available."""
+        try:
+            settings = get_settings()
+            if settings.ollama.enabled:
+                from ..llm.ollama_intent_classifier import OllamaIntentClassifier, OllamaConfig
+                
+                # Convert settings to OllamaConfig
+                config = OllamaConfig(
+                    enabled=settings.ollama.enabled,
+                    base_url=settings.ollama.base_url,
+                    model=settings.ollama.model,
+                    timeout=settings.ollama.timeout,
+                    confidence_threshold=settings.ollama.confidence_threshold
+                )
+                
+                self.ollama_classifier = OllamaIntentClassifier(config)
+                
+                if self.ollama_classifier.is_available():
+                    logger.info("OLLAMA intent enhancement enabled and available")
+                else:
+                    logger.info("OLLAMA intent enhancement enabled but not available - using keyword fallback")
+            else:
+                logger.info("OLLAMA intent enhancement disabled in configuration")
+        except Exception as e:
+            logger.warning(f"Failed to initialize OLLAMA classifier: {e}. Using keyword-based classification only.")
+            self.ollama_classifier = None
     
     def process(self, request: AgentRequest) -> AgentResponse:
         """
-        Process user input to extract intent and entities.
+        Process user input to extract intent and entities with OLLAMA enhancement.
         
         Args:
             request (AgentRequest): The user request to process.
@@ -351,8 +387,27 @@ class BasicIntentParser(IntentParserAgent):
         # Log the processing
         logger.debug(f"Processing intent for input: '{user_input}'")
         
-        # Classify intent
-        intent_match = self.classifier.get_best_intent(user_input)
+        # Try OLLAMA classification first if available
+        intent_match = None
+        classification_method = "keyword"
+        
+        if self.ollama_classifier and self.ollama_classifier.is_available():
+            try:
+                ollama_match = self.ollama_classifier.classify_intent(user_input)
+                if ollama_match:
+                    intent_match = ollama_match
+                    classification_method = "OLLAMA"
+                    logger.debug(f"OLLAMA classification successful: {intent_match.intent.value} "
+                               f"(confidence: {intent_match.confidence:.2f})")
+                else:
+                    logger.debug("OLLAMA classification returned low confidence, falling back to keywords")
+            except Exception as e:
+                logger.warning(f"OLLAMA classification failed: {e}, falling back to keywords")
+        
+        # Fallback to keyword-based classification if OLLAMA didn't provide a result
+        if intent_match is None:
+            intent_match = self.classifier.get_best_intent(user_input)
+            classification_method = "keyword"
         
         # Extract entities
         entities = self.entity_extractor.extract_entities(user_input)
@@ -373,7 +428,7 @@ class BasicIntentParser(IntentParserAgent):
         )
         
         logger.info(f"Detected intent: {intent_match.intent.value} "
-                   f"(confidence: {intent_match.confidence:.2f})")
+                   f"(confidence: {intent_match.confidence:.2f}, method: {classification_method})")
         
         return response
     

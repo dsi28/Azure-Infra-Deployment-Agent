@@ -205,7 +205,50 @@ src/
 
 ## Sprint 4: Web App Support & Polish (Week 4)
 
-### Task 4.1: Web App Resource Handler
+### ✅ Task 4.1: OLLAMA Intent Enhancement (Minimal) - COMPLETED
+**Priority**: Medium | **Effort**: 4 hours
+
+- [x] Create OLLAMA intent classifier with fallback to existing keyword system
+- [x] Integrate OLLAMA client with existing intent parser
+- [x] Add configuration option to enable/disable LLM enhancement
+- [x] Implement confidence threshold for LLM responses
+- [x] Ensure graceful handling of OLLAMA unavailability
+
+**Files Created/Modified**:
+- ✅ `src/llm/__init__.py`
+- ✅ `src/llm/ollama_intent_classifier.py` - OLLAMA-specific intent classification
+- ✅ `src/agents/intent_parser.py` - MODIFIED: Added LLM fallback logic
+- ✅ `src/config/settings.py` - MODIFIED: Added OLLAMA configuration settings
+- ✅ `requirements.txt` - ADDED: ollama Python package
+- ✅ `tests/src/llm/__init__.py`
+- ✅ `tests/src/llm/test_ollama_intent_classifier.py` - Comprehensive unit tests (26 test cases)
+- ✅ `tests/src/agents/test_intent_parser.py` - MODIFIED: Added OLLAMA integration tests
+
+**Acceptance Criteria**:
+- ✅ OLLAMA integration with graceful fallback to existing keyword system
+- ✅ No breaking changes to existing workflow or interfaces
+- ✅ Handles OLLAMA unavailability without errors
+- ✅ Confidence threshold prevents low-quality LLM responses
+- ✅ Configuration option to disable LLM (use keywords only)
+- ✅ Same response format as existing intent parser
+- ✅ Unit tests achieve >80% coverage for new components
+
+**Test Cases Verified**:
+- ✅ "I need storage for my web app logs" → storage_account intent (complex natural language)
+- ✅ "Create a storage account" → storage_account intent (simple)
+- ✅ OLLAMA unavailable → Falls back to keyword-based classification
+- ✅ Low confidence LLM response → Uses keyword fallback
+- ✅ Configuration disabled → Uses only keyword classification
+
+**Implementation Summary**:
+- Enhanced intent parser with optional OLLAMA natural language understanding
+- Maintains full backward compatibility with existing keyword-based classification
+- Added comprehensive configuration management via environment variables
+- Implemented graceful error handling and fallback mechanisms
+- Created extensive test suite covering all failure and success scenarios
+- All project rules and conventions followed
+
+### Task 4.2: Web App Resource Handler
 **Priority**: Medium | **Effort**: 6 hours
 
 - [ ] Create web app resource class
@@ -220,7 +263,7 @@ src/
 - Region
 - Pricing tier
 
-### Task 4.2: Enhanced User Experience
+### Task 4.3: Enhanced User Experience
 **Priority**: Medium | **Effort**: 6 hours
 
 - [ ] Add colored output with Rich
@@ -228,7 +271,7 @@ src/
 - [ ] Add command history
 - [ ] Create help system
 
-### Task 4.3: Error Handling & Validation
+### Task 4.4: Error Handling & Validation
 **Priority**: High | **Effort**: 4 hours
 
 - [ ] Add comprehensive input validation

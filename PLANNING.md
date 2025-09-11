@@ -29,7 +29,7 @@ Create an intelligent conversational agent that simplifies Azure infrastructure 
 ### Core Components
 
 1. **Chat Interface**: CLI-based conversational interface using `rich` for enhanced UX
-2. **Intent Parser**: Classify user requests and extract resource requirements
+2. **Intent Parser**: Classify user requests and extract resource requirements (enhanced with OLLAMA for natural language understanding)
 3. **Resource Engine**: Manage resource-specific logic and validation
 4. **Configuration Builder**: Interactive prompts to gather resource parameters
 5. **Template Generator**: Create ARM/Bicep templates from specifications
@@ -45,6 +45,7 @@ Create an intelligent conversational agent that simplifies Azure infrastructure 
 - **UI Enhancement**: Rich (terminal formatting)
 - **Data Validation**: Pydantic
 - **Template Engine**: Jinja2
+- **LLM Integration**: OLLAMA (for intent understanding)
 
 ### Azure Integration
 - **Azure CLI**: For authentication and basic operations
@@ -117,6 +118,7 @@ Based on your common deployment patterns:
 - Cost estimation
 - Security best practices enforcement
 - Integration with Terraform
+- Enhanced OLLAMA integration for parameter extraction
 
 ### Phase 4: Enterprise Integration
 - REST API wrapper for core agent logic

@@ -3,9 +3,11 @@ Unit tests for agents.intent_parser module.
 
 Tests for intent classification including IntentClassifier, BasicIntentParser,
 and various intent recognition scenarios with expected use cases, edge cases, and failures.
+Enhanced with OLLAMA integration testing.
 """
 
 import pytest
+from unittest.mock import Mock, patch, MagicMock
 from src.agents.intent_parser import (
     Intent,
     IntentMatch,
@@ -534,3 +536,212 @@ class TestIntentParserIntegration:
             assert response.intent is not None, f"Failed on request {i}: {test_requests[i]}"
             assert response.response is not None, f"No response for request {i}: {test_requests[i]}"
             assert isinstance(response.confidence, float), f"Invalid confidence for request {i}: {test_requests[i]}"
+
+
+class TestBasicIntentParserOllamaIntegration:
+    """Test OLLAMA integration in BasicIntentParser."""
+    
+    def setup_method(self):
+        """Set up test fixtures before each test method."""
+        # Mock the settings to control OLLAMA configuration
+        self.mock_settings_patcher = patch('src.agents.intent_parser.get_settings')
+        self.mock_settings = self.mock_settings_patcher.start()
+        
+        # Default OLLAMA settings
+        self.mock_settings.return_value.ollama.enabled = True
+        self.mock_settings.return_value.ollama.base_url = "http://localhost:11434"
+        self.mock_settings.return_value.ollama.model = "llama3.1"
+        self.mock_settings.return_value.ollama.timeout = 10.0
+        self.mock_settings.return_value.ollama.confidence_threshold = 0.7
+    
+    def teardown_method(self):
+        """Clean up after each test method."""
+        self.mock_settings_patcher.stop()
+    
+    @patch('src.agents.intent_parser.OllamaIntentClassifier')
+    def test_init_ollama_disabled(self, mock_ollama_classifier):
+        """Test BasicIntentParser initialization with OLLAMA disabled."""
+        self.mock_settings.return_value.ollama.enabled = False
+        
+        parser = BasicIntentParser()
+        
+        assert parser.ollama_classifier is None
+        mock_ollama_classifier.assert_not_called()
+    
+    @patch('src.agents.intent_parser.OllamaIntentClassifier')
+    def test_init_ollama_enabled_available(self, mock_ollama_classifier):
+        """Test BasicIntentParser initialization with OLLAMA enabled and available."""
+        # Mock successful OLLAMA initialization
+        mock_classifier_instance = Mock()
+        mock_classifier_instance.is_available.return_value = True
+        mock_ollama_classifier.return_value = mock_classifier_instance
+        
+        parser = BasicIntentParser()
+        
+        assert parser.ollama_classifier is not None
+        mock_ollama_classifier.assert_called_once()
+        mock_classifier_instance.is_available.assert_called()
+    
+    @patch('src.agents.intent_parser.OllamaIntentClassifier')
+    def test_init_ollama_enabled_unavailable(self, mock_ollama_classifier):
+        """Test BasicIntentParser initialization with OLLAMA enabled but unavailable."""
+        # Mock OLLAMA initialization failure
+        mock_ollama_classifier.side_effect = Exception("OLLAMA connection failed")
+        
+        parser = BasicIntentParser()
+        
+        assert parser.ollama_classifier is None
+    
+    @patch('src.agents.intent_parser.OllamaIntentClassifier')
+    def test_process_ollama_success(self, mock_ollama_classifier):
+        """Test processing with successful OLLAMA classification."""
+        # Setup mock OLLAMA classifier
+        mock_classifier_instance = Mock()
+        mock_classifier_instance.is_available.return_value = True
+        
+        # Mock successful OLLAMA classification
+        ollama_match = IntentMatch(
+            intent=Intent.CREATE_STORAGE_ACCOUNT,
+            confidence=0.9,
+            keywords=["storage", "account"],
+            reasoning="OLLAMA: User wants to create storage account"
+        )
+        mock_classifier_instance.classify_intent.return_value = ollama_match
+        mock_ollama_classifier.return_value = mock_classifier_instance
+        
+        parser = BasicIntentParser()
+        request = AgentRequest(user_input="I need storage for my application data")
+        
+        response = parser.process(request)
+        
+        assert response.intent == Intent.CREATE_STORAGE_ACCOUNT.value
+        assert response.confidence == 0.9
+        assert "OLLAMA" in response.next_action or "storage" in response.next_action.lower()
+        mock_classifier_instance.classify_intent.assert_called_once_with("I need storage for my application data")
+    
+    @patch('src.agents.intent_parser.OllamaIntentClassifier')
+    def test_process_ollama_failure_fallback(self, mock_ollama_classifier):
+        """Test processing with OLLAMA failure falling back to keyword classification."""
+        # Setup mock OLLAMA classifier
+        mock_classifier_instance = Mock()
+        mock_classifier_instance.is_available.return_value = True
+        mock_classifier_instance.classify_intent.return_value = None  # OLLAMA fails
+        mock_ollama_classifier.return_value = mock_classifier_instance
+        
+        parser = BasicIntentParser()
+        request = AgentRequest(user_input="create storage account")
+        
+        response = parser.process(request)
+        
+        # Should fallback to keyword-based classification
+        assert response.intent == Intent.CREATE_STORAGE_ACCOUNT.value
+        assert response.confidence > 0  # Should have some confidence from keyword matching
+        mock_classifier_instance.classify_intent.assert_called_once()
+    
+    @patch('src.agents.intent_parser.OllamaIntentClassifier')
+    def test_process_ollama_unavailable_fallback(self, mock_ollama_classifier):
+        """Test processing with OLLAMA unavailable."""
+        # Setup mock OLLAMA classifier as unavailable
+        mock_classifier_instance = Mock()
+        mock_classifier_instance.is_available.return_value = False
+        mock_ollama_classifier.return_value = mock_classifier_instance
+        
+        parser = BasicIntentParser()
+        request = AgentRequest(user_input="create storage account")
+        
+        response = parser.process(request)
+        
+        # Should use keyword-based classification only
+        assert response.intent == Intent.CREATE_STORAGE_ACCOUNT.value
+        assert response.confidence > 0
+        mock_classifier_instance.classify_intent.assert_not_called()
+    
+    @patch('src.agents.intent_parser.OllamaIntentClassifier')
+    def test_process_ollama_low_confidence_fallback(self, mock_ollama_classifier):
+        """Test processing with OLLAMA returning low confidence result."""
+        # Setup mock OLLAMA classifier
+        mock_classifier_instance = Mock()
+        mock_classifier_instance.is_available.return_value = True
+        
+        # Mock low confidence OLLAMA result (below threshold)
+        ollama_match = IntentMatch(
+            intent=Intent.UNKNOWN,
+            confidence=0.3,  # Below default threshold of 0.7
+            keywords=["unclear"],
+            reasoning="OLLAMA: Low confidence classification"
+        )
+        mock_classifier_instance.classify_intent.return_value = ollama_match
+        mock_ollama_classifier.return_value = mock_classifier_instance
+        
+        # Mock that the threshold check causes None return
+        def classify_side_effect(text):
+            return None  # Simulating confidence threshold check
+        mock_classifier_instance.classify_intent.side_effect = classify_side_effect
+        
+        parser = BasicIntentParser()
+        request = AgentRequest(user_input="create storage account")
+        
+        response = parser.process(request)
+        
+        # Should fallback to keyword classification
+        assert response.intent == Intent.CREATE_STORAGE_ACCOUNT.value
+        mock_classifier_instance.classify_intent.assert_called_once()
+    
+    @patch('src.agents.intent_parser.OllamaIntentClassifier')
+    def test_process_ollama_exception_fallback(self, mock_ollama_classifier):
+        """Test processing with OLLAMA raising exception."""
+        # Setup mock OLLAMA classifier
+        mock_classifier_instance = Mock()
+        mock_classifier_instance.is_available.return_value = True
+        mock_classifier_instance.classify_intent.side_effect = Exception("OLLAMA API error")
+        mock_ollama_classifier.return_value = mock_classifier_instance
+        
+        parser = BasicIntentParser()
+        request = AgentRequest(user_input="create storage account")
+        
+        response = parser.process(request)
+        
+        # Should gracefully fallback to keyword classification
+        assert response.intent == Intent.CREATE_STORAGE_ACCOUNT.value
+        assert response.confidence > 0
+        mock_classifier_instance.classify_intent.assert_called_once()
+    
+    @pytest.mark.parametrize("ollama_intent,keyword_intent", [
+        (Intent.CREATE_STORAGE_ACCOUNT, Intent.CREATE_STORAGE_ACCOUNT),
+        (Intent.CREATE_WEB_APP, Intent.CREATE_WEB_APP),
+        (Intent.GREETING, Intent.GREETING),
+        (Intent.UNKNOWN, Intent.CREATE_STORAGE_ACCOUNT),  # OLLAMA unclear, keywords clear
+    ])
+    @patch('src.agents.intent_parser.OllamaIntentClassifier')
+    def test_process_intent_consistency(self, mock_ollama_classifier, ollama_intent, keyword_intent):
+        """Test consistency between OLLAMA and keyword classification."""
+        # Setup mock OLLAMA classifier
+        mock_classifier_instance = Mock()
+        mock_classifier_instance.is_available.return_value = True
+        
+        if ollama_intent != Intent.UNKNOWN:
+            # Mock successful OLLAMA classification
+            ollama_match = IntentMatch(
+                intent=ollama_intent,
+                confidence=0.8,
+                keywords=["test"],
+                reasoning="OLLAMA classification"
+            )
+            mock_classifier_instance.classify_intent.return_value = ollama_match
+        else:
+            # Mock OLLAMA returning None (low confidence)
+            mock_classifier_instance.classify_intent.return_value = None
+        
+        mock_ollama_classifier.return_value = mock_classifier_instance
+        
+        parser = BasicIntentParser()
+        request = AgentRequest(user_input="create storage account")
+        
+        response = parser.process(request)
+        
+        if ollama_intent != Intent.UNKNOWN:
+            # Should use OLLAMA result
+            assert response.intent == ollama_intent.value
+        else:
+            # Should fallback to keyword result
+            assert response.intent == keyword_intent.value
