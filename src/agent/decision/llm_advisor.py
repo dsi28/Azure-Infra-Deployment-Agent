@@ -60,41 +60,56 @@ class LLMStorageAdvisor:
         Returns:
             str: System prompt containing Azure storage knowledge.
         """
-        return """You are an Azure Storage expert with deep knowledge of storage account configurations.
+        return """You are an Azure Storage expert. You must analyze user storage requirements and provide ONE recommendation.
 
-AZURE STORAGE TIERS:
-- Hot: Frequently accessed data, highest storage cost, lowest access cost
-- Cool: Infrequently accessed data (monthly), lower storage cost, higher access cost
-- Archive: Rarely accessed data (yearly), lowest storage cost, highest access cost
+CRITICAL: Your response must be ONLY valid JSON. No additional text before or after the JSON.
 
-PERFORMANCE TIERS:
-- Standard: Cost-effective, good for most workloads, up to 20,000 IOPS
-- Premium: High performance, SSD-based, up to 80,000 IOPS, higher cost
+AZURE STORAGE OPTIONS:
 
-REPLICATION TYPES:
-- LRS (Locally Redundant): 3 copies in same region, lowest cost, 99.999999999% durability
-- GRS (Geo-Redundant): 6 copies across 2 regions, disaster recovery, higher cost
-- ZRS (Zone-Redundant): 3 copies across availability zones, high availability
-- RAGRS (Read-Access GRS): GRS + read access to secondary region
-- GZRS (Geo-Zone-Redundant): ZRS + geo-replication
-- RAGZRS (Read-Access GZRS): GZRS + read access to secondary region
+Access Tiers (choose exactly one):
+- Hot: For frequently accessed data (daily/weekly). Higher storage cost, lower access cost.
+- Cool: For infrequently accessed data (monthly). Lower storage cost, higher access cost.
+- Archive: For rarely accessed data (yearly). Lowest storage cost, highest access cost.
 
-DECISION GUIDELINES:
-- Images/Media for websites: Hot + Standard + LRS (fast access, cost-effective)
-- High-traffic applications: Hot + Premium + ZRS (performance + availability)
-- Backups: Cool + Standard + GRS (cost-effective + disaster recovery)
-- Archive/Compliance: Archive + Standard + GRS (lowest cost + compliance)
-- Development/Testing: Hot + Standard + LRS (cost-effective for dev)
-- Data lakes/Analytics: Cool + Premium + ZRS (performance for analytics)
+Performance Tiers (choose exactly one):
+- Standard: General purpose, cost-effective for most workloads
+- Premium: High performance SSD-based storage for demanding applications
 
-Respond with JSON format:
-{
-    "tier": "Hot|Cool|Archive",
-    "performance": "Standard|Premium", 
-    "replication": "LRS|GRS|ZRS|RAGRS|GZRS|RAGZRS",
-    "reasoning": "Brief explanation of choices",
-    "confidence": 0.8
-}"""
+Replication Types (choose exactly one):
+- LRS: Locally redundant, 3 copies in same region (lowest cost)
+- GRS: Geo-redundant, 6 copies across 2 regions (disaster recovery)
+- ZRS: Zone-redundant, 3 copies across availability zones (high availability)
+- RAGRS: Read-access geo-redundant (GRS + read access to secondary)
+- GZRS: Geo-zone-redundant (combines ZRS and GRS)
+- RAGZRS: Read-access geo-zone-redundant (GZRS + read access)
+
+COMMON SCENARIOS:
+1. Website images/media → Hot + Standard + LRS
+2. Application data (high traffic) → Hot + Premium + ZRS
+3. Database backups → Cool + Standard + GRS
+4. Archive/compliance data → Archive + Standard + GRS
+5. Development/testing → Hot + Standard + LRS
+6. Data analytics → Cool + Premium + ZRS
+
+EXAMPLE USER REQUESTS AND RESPONSES:
+Request: "storage for website images"
+Response: {"tier": "Hot", "performance": "Standard", "replication": "LRS", "reasoning": "Website images need fast access (Hot tier), standard performance is cost-effective, and LRS provides sufficient durability for non-critical assets", "confidence": 0.9}
+
+Request: "backup storage that should survive datacenter failure"
+Response: {"tier": "Cool", "performance": "Standard", "replication": "GRS", "reasoning": "Backups are accessed infrequently (Cool tier), standard performance is sufficient, and GRS provides disaster recovery across regions", "confidence": 0.9}
+
+Request: "old data I don't access often, stored in multiple datacenters same region"
+Response: {"tier": "Cool", "performance": "Standard", "replication": "ZRS", "reasoning": "Infrequently accessed data suits Cool tier, standard performance is sufficient, and ZRS provides redundancy across availability zones within the same region", "confidence": 0.9}
+
+IMPORTANT RULES:
+1. Response must be ONLY valid JSON - no additional text
+2. Choose exactly one value for each field - no alternatives or pipe symbols
+3. All field names must be lowercase: "tier", "performance", "replication", "reasoning", "confidence"
+4. Confidence must be a number between 0.0 and 1.0
+5. Reasoning should be one clear sentence explaining the choice
+
+Your response must match this exact format:
+{"tier": "Hot", "performance": "Standard", "replication": "LRS", "reasoning": "Brief explanation", "confidence": 0.8}"""
 
     def get_recommendation(
         self, 
@@ -187,7 +202,9 @@ Respond with JSON format:
                 if indicators.get('cost'):
                     prompt_parts.append(f"Cost keywords: {', '.join(indicators['cost'])}")
         
-        prompt_parts.append("\nProvide storage account configuration recommendation in JSON format.")
+        prompt_parts.append("\nIMPORTANT: Respond with ONLY valid JSON using this exact format:")
+        prompt_parts.append('{"tier": "Hot|Cool|Archive", "performance": "Standard|Premium", "replication": "LRS|GRS|ZRS|RAGRS|GZRS|RAGZRS", "reasoning": "explanation", "confidence": 0.8}')
+        prompt_parts.append("\nNo additional text. Only the JSON response.")
         
         return "\n".join(prompt_parts)
     
@@ -216,15 +233,32 @@ Respond with JSON format:
                     logger.warning(f"Missing required field '{field}' in LLM response")
                     return None
             
-            # Validate enum values
+            # Validate enum values with fallback for pipe-separated values
             valid_tiers = ['Hot', 'Cool', 'Archive']
             valid_performance = ['Standard', 'Premium']
             valid_replication = ['LRS', 'GRS', 'ZRS', 'RAGRS', 'GZRS', 'RAGZRS']
             
-            tier = json_data['tier']
-            performance = json_data['performance']
-            replication = json_data['replication']
+            tier = json_data['tier'].strip()
+            performance = json_data['performance'].strip()
+            replication = json_data['replication'].strip()
             
+            # Handle pipe-separated values by taking the first valid option
+            if '|' in tier:
+                tier_options = [t.strip() for t in tier.split('|')]
+                tier = next((t for t in tier_options if t in valid_tiers), tier_options[0])
+                logger.warning(f"LLM returned multiple tiers '{json_data['tier']}', using '{tier}'")
+            
+            if '|' in performance:
+                perf_options = [p.strip() for p in performance.split('|')]
+                performance = next((p for p in perf_options if p in valid_performance), perf_options[0])
+                logger.warning(f"LLM returned multiple performance options '{json_data['performance']}', using '{performance}'")
+            
+            if '|' in replication:
+                repl_options = [r.strip() for r in replication.split('|')]
+                replication = next((r for r in repl_options if r in valid_replication), repl_options[0])
+                logger.warning(f"LLM returned multiple replication options '{json_data['replication']}', using '{replication}'")
+            
+            # Final validation
             if tier not in valid_tiers:
                 logger.warning(f"Invalid tier '{tier}' in LLM response")
                 return None
@@ -256,7 +290,7 @@ Respond with JSON format:
     
     def _extract_json_from_response(self, response: str) -> Optional[Dict[str, Any]]:
         """
-        Extract JSON object from LLM response text.
+        Extract JSON object from LLM response text with improved error handling.
         
         Args:
             response (str): Raw LLM response.
@@ -264,19 +298,40 @@ Respond with JSON format:
         Returns:
             Optional[Dict[str, Any]]: Parsed JSON data or None if not found.
         """
+        # Clean up the response
+        response = response.strip()
+        
         # Try to find JSON object in response
         start_idx = response.find('{')
         end_idx = response.rfind('}')
         
         if start_idx == -1 or end_idx == -1 or start_idx >= end_idx:
+            logger.warning(f"No JSON braces found in LLM response: {response[:100]}...")
             return None
         
         json_str = response[start_idx:end_idx + 1]
         
         try:
+            # First attempt - direct parsing
             return json.loads(json_str)
-        except json.JSONDecodeError:
-            return None
+        except json.JSONDecodeError as e:
+            logger.warning(f"First JSON parse failed: {e}")
+            
+            # Second attempt - clean up common LLM formatting issues
+            try:
+                # Fix common issues with LLM responses
+                cleaned = json_str.replace('\n', ' ').replace('\t', ' ')
+                # Remove extra spaces
+                import re
+                cleaned = re.sub(r'\s+', ' ', cleaned)
+                # Fix quotes issues
+                cleaned = cleaned.replace("'", '"')
+                
+                return json.loads(cleaned)
+            except json.JSONDecodeError as e2:
+                logger.warning(f"Second JSON parse failed: {e2}")
+                logger.warning(f"Problematic JSON string: {json_str}")
+                return None
     
     def to_storage_config(self, recommendation: LLMRecommendation) -> StorageConfig:
         """

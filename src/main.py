@@ -30,9 +30,9 @@ def main(agent: bool) -> None:
     try:
         if agent:
             # Use new agent mode with local LLM
-            click.echo("🤖 Starting Azure Storage Agent (Agent Mode)")
-            click.echo("💡 Requires Ollama with llama3.2:3b model installed")
-            click.echo("🔄 Fallback to workflow mode available if needed")
+            click.echo("Starting Azure Storage Agent (Agent Mode)")
+            click.echo("Requires Ollama with llama3.2:3b model installed")
+            click.echo("Fallback to workflow mode available if needed")
             click.echo("-" * 60)
             
             agent_chat = create_agent_chat()

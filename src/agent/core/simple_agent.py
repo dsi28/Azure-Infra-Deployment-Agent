@@ -490,7 +490,7 @@ class SimpleAgent:
             str: Help message with usage examples.
         """
         return (
-            "🤖 **Azure Storage Agent Help**\n\n"
+            "Azure Storage Agent Help\n\n"
             "I can help you create Azure Storage Accounts through natural conversation. "
             "Here are some things you can say:\n\n"
             "**New Storage Requests:**\n"

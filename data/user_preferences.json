@@ -19,16 +19,6 @@
     "logs": {
       "tier": "Cool",
       "replication": "LRS"
-    },
-    "database": {
-      "tier": "Cool",
-      "replication": "LRS",
-      "performance": "Standard"
-    },
-    "log": {
-      "tier": "Archive",
-      "replication": "LRS",
-      "performance": "Standard"
     }
   }
 }

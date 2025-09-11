@@ -43,7 +43,7 @@ class DualRecommendationUI:
             dual_rec (DualRecommendation): Dual recommendation to present.
         """
         print("\n" + "="*80)
-        print("📊 STORAGE CONFIGURATION RECOMMENDATIONS")
+        print("STORAGE CONFIGURATION RECOMMENDATIONS")
         print("="*80)
         
         if not dual_rec.llm_available:
@@ -63,11 +63,11 @@ class DualRecommendationUI:
         Args:
             rules_rec (StorageConfig): Rule-based recommendation.
         """
-        print("🤖 AI Recommendation: ❌ Unavailable (LLM offline)")
-        print("📋 Rule-Based Recommendation: ✅ Available")
+        print("AI Recommendation: Unavailable (LLM offline)")
+        print("Rule-Based Recommendation: Available")
         print()
         
-        print("📋 RULE-BASED CONFIGURATION:")
+        print("RULE-BASED CONFIGURATION:")
         print(f"   • Access Tier: {rules_rec.tier}")
         print(f"   • Performance: {rules_rec.performance}")  
         print(f"   • Replication: {rules_rec.replication}")
@@ -84,32 +84,33 @@ class DualRecommendationUI:
         llm_rec = dual_rec.llm_recommendation
         rules_rec = dual_rec.rules_recommendation
         
-        print("🤖 AI RECOMMENDATION" + " " * 25 + "📋 RULE-BASED RECOMMENDATION")
+        print("AI RECOMMENDATION" + " " * 30 + "RULE-BASED RECOMMENDATION")
         print("-" * 40 + " " * 5 + "-" * 35)
         
         # Tier comparison
-        tier_marker = "✓" if llm_rec.tier == rules_rec.tier else "⚠"
+        tier_marker = "+" if llm_rec.tier == rules_rec.tier else "!"
         print(f"Access Tier: {llm_rec.tier:<15} {tier_marker}     Access Tier: {rules_rec.tier}")
         
         # Performance comparison  
-        perf_marker = "✓" if llm_rec.performance == rules_rec.performance else "⚠"
+        perf_marker = "+" if llm_rec.performance == rules_rec.performance else "!"
         print(f"Performance: {llm_rec.performance:<15} {perf_marker}     Performance: {rules_rec.performance}")
         
         # Replication comparison
-        repl_marker = "✓" if llm_rec.replication == rules_rec.replication else "⚠"
+        repl_marker = "+" if llm_rec.replication == rules_rec.replication else "!"
         print(f"Replication: {llm_rec.replication:<15} {repl_marker}     Replication: {rules_rec.replication}")
         
-        # Confidence
-        print(f"Confidence: {llm_rec.confidence:.1%:<16}     Confidence: Built-in rules")
+        # Confidence  
+        confidence_str = f"{llm_rec.confidence:.1%}"
+        print(f"Confidence: {confidence_str:<16}     Confidence: Built-in rules")
         
         print()
         
         # Reasoning
-        print("🤖 AI REASONING:")
+        print("AI REASONING:")
         print(f"   {llm_rec.reasoning}")
         print()
         
-        print("📋 RULE-BASED REASONING:")
+        print("RULE-BASED REASONING:")
         print(f"   {rules_rec.reasoning}")
         print()
     
@@ -125,14 +126,14 @@ class DualRecommendationUI:
             
         agreement = dual_rec.get_agreement_score()
         
-        print("🔍 AGREEMENT ANALYSIS:")
+        print("AGREEMENT ANALYSIS:")
         
         if agreement >= 0.67:
-            print(f"   ✅ High Agreement ({agreement:.1%}) - Both recommendations align well")
+            print(f"   + High Agreement ({agreement:.1%}) - Both recommendations align well")
         elif agreement >= 0.33:
-            print(f"   ⚠️  Moderate Agreement ({agreement:.1%}) - Some differences to consider")
+            print(f"   ! Moderate Agreement ({agreement:.1%}) - Some differences to consider")
         else:
-            print(f"   ❌ Low Agreement ({agreement:.1%}) - Significant differences detected")
+            print(f"   - Low Agreement ({agreement:.1%}) - Significant differences detected")
         
         print()
     
@@ -184,9 +185,9 @@ class DualRecommendationUI:
             Tuple[UserChoice, Optional[Dict[str, Any]]]: User choice and custom config.
         """
         print("CHOICE OPTIONS:")
-        print("  Use AI Recommendation (LLM-based)")
-        print("  Use Rule-Based Recommendation")
-        print("  Cancel")
+        print("1  Use AI Recommendation (LLM-based)")
+        print("2  Use Rule-Based Recommendation")
+        print("3  Cancel")
         print()
         
         while True:
@@ -210,12 +211,12 @@ class DualRecommendationUI:
             config (Dict[str, Any]): Final configuration selected.
         """
         choice_labels = {
-            UserChoice.LLM: "🤖 AI Recommendation",
-            UserChoice.RULES: "📋 Rule-Based Recommendation"
+            UserChoice.LLM: "AI Recommendation",
+            UserChoice.RULES: "Rule-Based Recommendation"
         }
         
         print("\n" + "="*60)
-        print("✅ FINAL CONFIGURATION SELECTED")
+        print("FINAL CONFIGURATION SELECTED")
         print("="*60)
         print(f"Source: {choice_labels.get(choice, 'Unknown')}")
         print()

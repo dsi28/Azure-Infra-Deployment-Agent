@@ -14,6 +14,9 @@ from ..memory.user_profile import UserProfile
 from ..decision.dual_recommender import DualRecommendationEngine, create_dual_recommender
 from ..conversation.dual_recommendation_ui import DualRecommendationUI, UserChoice, create_dual_recommendation_ui
 from ..learning.recommendation_feedback import RecommendationPreferenceTracker, create_recommendation_tracker
+from ...config.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class ConversationState(Enum):
@@ -166,39 +169,82 @@ class StorageConversation:
             # Store dual recommendation for choice processing
             self.current_dual_recommendation = dual_rec
             
+            # Generate conversational introduction based on the request
+            intro_message = self._generate_conversational_intro(user_input, dual_rec)
+            if intro_message:
+                print(f"\nAgent: {intro_message}")
+            
             # Present dual recommendations to user
             self.dual_ui.present_dual_recommendations(dual_rec)
             
-            # Move to choice collection state
+            # Transition to collecting user choice state
             self.context.state = ConversationState.COLLECTING_USER_CHOICE
             
+            # Display choice options
+            print("\nCHOICE OPTIONS:")
+            if dual_rec.llm_available:
+                print("1  Use AI Recommendation (LLM-based)")
+                print("2  Use Rule-Based Recommendation") 
+                print("3  Cancel")
+                choice_message = "Select your choice (1/2/cancel): "
+            else:
+                print("1  Use Rule-Based Recommendation")
+                print("2  Cancel")
+                choice_message = "Select your choice (1/cancel): "
+                
             return AgentResponse(
-                message="Please review the recommendations above and make your choice.",
+                message=choice_message,
                 success=True,
                 requires_confirmation=False
             )
             
         except Exception as e:
-            # Fallback to original agent processing
-            response = self.agent.process_message(user_input)
+            # Log the actual error for debugging
+            logger.error(f"Dual recommendation failed: {str(e)}", exc_info=True)
             
-            if response.success and response.recommendation:
-                # We have a recommendation - move to presentation state
-                self.context.state = ConversationState.PRESENTING_DUAL_RECOMMENDATION
-                self.context.current_recommendation = response.recommendation
+            # Handle dual recommendation failure gracefully
+            # Try to get a rule-based recommendation only
+            try:
+                from ..decision.storage_advisor import create_storage_advisor
+                advisor = create_storage_advisor()
+                rule_rec = advisor.get_storage_recommendation(user_input, user_profile)
                 
-                # Extract user requirements from the response context
-                if response.context_used:
-                    self.context.user_requirements = {
-                        "detected_use_case": response.recommendation.detected_use_case,
-                        "confidence": response.recommendation.confidence,
-                        "keywords_found": response.context_used.get("detected_keywords", []),
-                        "context_hints": response.context_used.get("context_hints", {})
-                    }
-            elif not response.success:
+                # Create a dual recommendation with only rules component
+                from ..decision.dual_recommender import DualRecommendation
+                fallback_dual_rec = DualRecommendation(
+                    llm_recommendation=None,
+                    rules_recommendation=rule_rec.configuration,
+                    llm_available=False,
+                    user_input=user_input,
+                    context={"fallback_mode": True, "error": str(e)}
+                )
+                
+                # Store and present the fallback recommendation
+                self.current_dual_recommendation = fallback_dual_rec
+                self.dual_ui.present_dual_recommendations(fallback_dual_rec)
+                
+                # Transition to collecting user choice state
+                self.context.state = ConversationState.COLLECTING_USER_CHOICE
+                
+                # Display choice options for rules only
+                print("\nCHOICE OPTIONS:")
+                print("1  Use Rule-Based Recommendation")
+                print("2  Cancel")
+                
+                # Return message asking for user choice (rules only)
+                return AgentResponse(
+                    message="Select your choice (1/cancel): ",
+                    success=True,
+                    requires_confirmation=False
+                )
+                
+            except Exception as fallback_error:
+                # Last resort: return a simple error message
                 self.context.state = ConversationState.ERROR
-                
-            return response
+                return AgentResponse(
+                    message=f"Sorry, I'm having trouble processing your storage request. Please try again or ask for help.",
+                    success=False
+                )
     
     def _handle_recommendation_review(self, user_input: str) -> AgentResponse:
         """
@@ -239,6 +285,51 @@ class StorageConversation:
                 )
             )
     
+    def _handle_user_choice_collection(self, user_input: str) -> AgentResponse:
+        """
+        Handle user choice between dual recommendations.
+        
+        Args:
+            user_input (str): User's choice input.
+            
+        Returns:
+            AgentResponse: Response after processing user choice.
+        """
+        if not self.current_dual_recommendation:
+            self.context.state = ConversationState.ERROR
+            return AgentResponse(
+                message="Sorry, I don't have any recommendations to show. Let's start over.",
+                success=False
+            )
+        
+        # Parse user choice
+        choice_input = user_input.strip().lower()
+        
+        if choice_input in ['1']:
+            if self.current_dual_recommendation.llm_available:
+                choice = UserChoice.LLM
+            else:
+                choice = UserChoice.RULES  # When LLM unavailable, choice 1 = rules
+        elif choice_input in ['2'] and self.current_dual_recommendation.llm_available:
+            choice = UserChoice.RULES
+        elif choice_input in ['cancel', 'c']:
+            choice = UserChoice.CANCEL
+        else:
+            # Invalid choice, ask again
+            if self.current_dual_recommendation.llm_available:
+                return AgentResponse(
+                    message="Invalid choice. Please enter 1 (AI), 2 (Rules), or cancel: ",
+                    success=True
+                )
+            else:
+                return AgentResponse(
+                    message="Invalid choice. Please enter 1 (Rules) or cancel: ",
+                    success=True
+                )
+        
+        # Process the choice
+        return self._process_user_choice(choice, None)
+    
     def _handle_deployment_confirmation(self, user_input: str) -> AgentResponse:
         """
         Handle final deployment confirmation.
@@ -249,24 +340,59 @@ class StorageConversation:
         Returns:
             AgentResponse: Deployment ready response or further modifications.
         """
-        # If user wants to make changes, go back to modification
+        # If user wants to make changes, provide modification options
         if self._is_modification_request(user_input):
             self.context.state = ConversationState.MODIFYING_CONFIG
-            return self.agent.process_message(user_input)
+            
+            config = self.context.current_recommendation
+            return AgentResponse(
+                message=(
+                    f"What would you like to modify in your storage configuration?\n\n"
+                    f"Current settings:\n"
+                    f"• Access Tier: {config.get('tier', 'N/A')}\n"
+                    f"• Performance: {config.get('performance', 'N/A')}\n"
+                    f"• Replication: {config.get('replication', 'N/A')}\n\n"
+                    f"You can say:\n"
+                    f"• 'Make it cheaper' - Optimize for cost\n"
+                    f"• 'Make it faster' - Optimize for performance\n"
+                    f"• 'Change to Cool tier' - Specify tier changes\n"
+                    f"• 'Use GRS replication' - Specify replication changes\n"
+                    f"• 'Back' - Return to deployment options\n"
+                    f"• 'Start over' - Begin with a new storage request"
+                ),
+                success=True
+            )
         
-        # If user confirms, complete the conversation
+        # If user confirms, show final configuration and proceed to deployment
         elif self._is_confirmation(user_input):
-            response = self.agent.process_message(user_input)
-            if response.success:
-                self.context.state = ConversationState.COMPLETED
-            return response
+            # Show final configuration summary
+            config = self.context.current_recommendation
+            print(f"\n{'='*60}")
+            print("FINAL DEPLOYMENT CONFIGURATION")
+            print(f"{'='*60}")
+            print(f"Access Tier: {config.get('tier', 'N/A')}")
+            print(f"Performance: {config.get('performance', 'N/A')}")
+            print(f"Replication: {config.get('replication', 'N/A')}")
+            if config.get('reasoning'):
+                print(f"Reasoning: {config['reasoning']}")
+            print(f"{'='*60}")
+            
+            # Complete the conversation with deployment message
+            self.context.state = ConversationState.COMPLETED
+            return AgentResponse(
+                message="Storage account configuration ready for deployment! In a real deployment, this would create the Azure storage account with the specified settings.",
+                success=True,
+                recommendation=config
+            )
         
         # Handle other inputs
         else:
             return AgentResponse(
                 message=(
-                    "Ready to deploy! Say 'yes' to confirm the deployment, "
-                    "or let me know if you'd like to make any final changes."
+                    "Please choose an option:\n"
+                    "• Say 'yes' or 'deploy' to confirm deployment\n"
+                    "• Say 'modify' or 'change' to make adjustments\n"  
+                    "• Say 'cancel' to start over with a new request"
                 )
             )
     
@@ -280,16 +406,124 @@ class StorageConversation:
         Returns:
             AgentResponse: Modified configuration response.
         """
-        response = self.agent.process_message(user_input)
+        user_input_lower = user_input.lower().strip()
+        current_config = self.context.current_recommendation
         
-        if response.success and response.recommendation:
-            # Updated recommendation received, go back to review
-            self.context.state = ConversationState.PRESENTING_RECOMMENDATION
-            self.context.current_recommendation = response.recommendation
-        elif not response.success:
-            self.context.state = ConversationState.ERROR
+        # Handle specific modification requests
+        if 'back' in user_input_lower or 'return' in user_input_lower:
+            # Go back to deployment confirmation
+            self.context.state = ConversationState.CONFIRMING_DEPLOYMENT
+            return AgentResponse(
+                message="Returning to deployment options. Would you like me to deploy this storage account? (Say 'yes' to deploy, 'modify' to make changes, or 'cancel' to start over)",
+                success=True
+            )
             
-        return response
+        elif 'start over' in user_input_lower or 'new request' in user_input_lower:
+            # Start completely over
+            self.context.state = ConversationState.GATHERING_REQUIREMENTS
+            self.current_dual_recommendation = None
+            self.context.current_recommendation = None
+            return AgentResponse(
+                message="Starting over. What storage do you need?",
+                success=True
+            )
+        
+        elif 'cheaper' in user_input_lower or 'cost' in user_input_lower:
+            # Optimize for cost - suggest cheaper alternatives
+            modified_config = current_config.copy()
+            if current_config.get('tier') == 'Hot':
+                modified_config['tier'] = 'Cool'
+                modified_config['reasoning'] = 'Changed to Cool tier for cost savings'
+            elif current_config.get('tier') == 'Cool':
+                modified_config['tier'] = 'Archive'
+                modified_config['reasoning'] = 'Changed to Archive tier for maximum cost savings'
+            else:
+                # Already cheapest, suggest performance change
+                if current_config.get('performance') == 'Premium':
+                    modified_config['performance'] = 'Standard'
+                    modified_config['reasoning'] = 'Changed to Standard performance for cost savings'
+                
+            return self._apply_configuration_change(modified_config, "cost optimization")
+            
+        elif 'faster' in user_input_lower or 'performance' in user_input_lower:
+            # Optimize for performance
+            modified_config = current_config.copy()
+            if current_config.get('performance') == 'Standard':
+                modified_config['performance'] = 'Premium'
+                modified_config['reasoning'] = 'Changed to Premium performance for better speed'
+            if current_config.get('tier') in ['Cool', 'Archive']:
+                modified_config['tier'] = 'Hot'
+                modified_config['reasoning'] = 'Changed to Hot tier for faster access'
+                
+            return self._apply_configuration_change(modified_config, "performance optimization")
+        
+        elif 'cool' in user_input_lower and 'tier' in user_input_lower:
+            modified_config = current_config.copy()
+            modified_config['tier'] = 'Cool'
+            modified_config['reasoning'] = 'Changed to Cool tier as requested'
+            return self._apply_configuration_change(modified_config, "tier change to Cool")
+            
+        elif 'hot' in user_input_lower and 'tier' in user_input_lower:
+            modified_config = current_config.copy()
+            modified_config['tier'] = 'Hot'
+            modified_config['reasoning'] = 'Changed to Hot tier as requested'
+            return self._apply_configuration_change(modified_config, "tier change to Hot")
+            
+        elif 'archive' in user_input_lower and 'tier' in user_input_lower:
+            modified_config = current_config.copy()
+            modified_config['tier'] = 'Archive'
+            modified_config['reasoning'] = 'Changed to Archive tier as requested'
+            return self._apply_configuration_change(modified_config, "tier change to Archive")
+            
+        elif 'grs' in user_input_lower:
+            modified_config = current_config.copy()
+            modified_config['replication'] = 'GRS'
+            modified_config['reasoning'] = 'Changed to GRS replication for geo-redundancy'
+            return self._apply_configuration_change(modified_config, "replication change to GRS")
+            
+        elif 'zrs' in user_input_lower:
+            modified_config = current_config.copy()
+            modified_config['replication'] = 'ZRS'
+            modified_config['reasoning'] = 'Changed to ZRS replication for zone redundancy'
+            return self._apply_configuration_change(modified_config, "replication change to ZRS")
+            
+        elif 'lrs' in user_input_lower:
+            modified_config = current_config.copy()
+            modified_config['replication'] = 'LRS'
+            modified_config['reasoning'] = 'Changed to LRS replication for cost efficiency'
+            return self._apply_configuration_change(modified_config, "replication change to LRS")
+        
+        else:
+            # Unrecognized modification request
+            return AgentResponse(
+                message=(
+                    "I didn't understand that modification request. Please try:\n"
+                    "• 'Make it cheaper' or 'Make it faster'\n"
+                    "• 'Change to [Cool/Hot/Archive] tier'\n"
+                    "• 'Use [LRS/GRS/ZRS] replication'\n"
+                    "• 'Back' to return to deployment options\n"
+                    "• 'Start over' for a new storage request"
+                ),
+                success=True
+            )
+    
+    def _apply_configuration_change(self, modified_config: dict, change_description: str) -> AgentResponse:
+        """Apply a configuration change and return to confirmation state."""
+        self.context.current_recommendation = modified_config
+        self.context.state = ConversationState.CONFIRMING_DEPLOYMENT
+        
+        return AgentResponse(
+            message=(
+                f"Configuration updated ({change_description})!\n\n"
+                f"New settings:\n"
+                f"• Access Tier: {modified_config.get('tier', 'N/A')}\n"
+                f"• Performance: {modified_config.get('performance', 'N/A')}\n"
+                f"• Replication: {modified_config.get('replication', 'N/A')}\n\n"
+                f"Would you like me to deploy this storage account? (Say 'yes' to deploy, 'modify' to make more changes, or 'cancel' to start over)"
+            ),
+            success=True,
+            recommendation=modified_config
+        )
     
     def _handle_error_state(self, user_input: str) -> AgentResponse:
         """
@@ -433,6 +667,49 @@ class StorageConversation:
         ]
         return self.context.state in active_states
     
+    def _generate_conversational_intro(self, user_input: str, dual_rec) -> str:
+        """
+        Generate a conversational introduction to the dual recommendations.
+        
+        Args:
+            user_input (str): User's original request.
+            dual_rec: Dual recommendation object.
+            
+        Returns:
+            str: Conversational introduction message.
+        """
+        # Extract use case from input for personalized response
+        user_input_lower = user_input.lower()
+        
+        if 'website' in user_input_lower or 'web' in user_input_lower or 'images' in user_input_lower:
+            use_case = "website content"
+            context = "fast access for users"
+        elif 'backup' in user_input_lower or 'database' in user_input_lower:
+            use_case = "backup storage"
+            context = "reliable data protection"
+        elif 'log' in user_input_lower or 'cheap' in user_input_lower or 'archive' in user_input_lower:
+            use_case = "archival storage"
+            context = "cost-effective long-term storage"
+        elif 'video' in user_input_lower or 'fast' in user_input_lower or 'performance' in user_input_lower:
+            use_case = "high-performance storage"
+            context = "fast access and processing"
+        elif 'analytics' in user_input_lower or 'data' in user_input_lower:
+            use_case = "data analytics"
+            context = "efficient data processing"
+        else:
+            use_case = "storage"
+            context = "your requirements"
+        
+        # Generate contextual intro message
+        if dual_rec.llm_available and dual_rec.get_agreement_score() >= 0.67:
+            return f"Perfect! I'll help you set up {use_case} optimized for {context}. Both my AI analysis and rule-based recommendations agree on the best approach:"
+        elif dual_rec.llm_available and dual_rec.get_agreement_score() < 0.33:
+            return f"Interesting! For {use_case} optimized for {context}, I have two different approaches. My AI analysis suggests a different strategy than the standard rules:"
+        elif dual_rec.llm_available:
+            return f"Great! I'll set up {use_case} for {context}. I have both AI-powered and rule-based recommendations with some interesting differences:"
+        else:
+            return f"I'll help you create {use_case} optimized for {context}. Here's my rule-based recommendation:"
+    
     def _handle_dual_recommendation_presentation(self, user_input: str) -> AgentResponse:
         """
         Handle dual recommendation presentation state.
@@ -443,9 +720,12 @@ class StorageConversation:
         Returns:
             AgentResponse: Response based on user's choice or feedback.
         """
-        # This is primarily handled by the UI, redirect to choice collection
-        self.context.state = ConversationState.COLLECTING_USER_CHOICE
-        return self._handle_user_choice_collection(user_input)
+        # This state should not be reached with the new flow, fallback to error
+        self.context.state = ConversationState.ERROR
+        return AgentResponse(
+            message="Something went wrong. Let's start over.",
+            success=False
+        )
     
     def _handle_user_choice_collection(self, user_input: str) -> AgentResponse:
         """
@@ -465,67 +745,33 @@ class StorageConversation:
                 success=False
             )
         
-        try:
-            # Get user choice through UI
-            choice, custom_config = self.dual_ui.get_user_choice(self.current_dual_recommendation)
-            
-            # Process the choice
-            if choice == UserChoice.CANCEL:
+        # Parse user choice
+        choice_input = user_input.strip().lower()
+        
+        if choice_input in ['1']:
+            if self.current_dual_recommendation.llm_available:
+                choice = UserChoice.LLM
+            else:
+                choice = UserChoice.RULES  # When LLM unavailable, choice 1 = rules
+        elif choice_input in ['2'] and self.current_dual_recommendation.llm_available:
+            choice = UserChoice.RULES
+        elif choice_input in ['cancel', 'c']:
+            choice = UserChoice.CANCEL
+        else:
+            # Invalid choice, ask again
+            if self.current_dual_recommendation.llm_available:
                 return AgentResponse(
-                    message="Configuration cancelled. Would you like to start over with a new storage request?",
+                    message="Invalid choice. Please enter 1 (AI), 2 (Rules), or cancel: ",
                     success=True
                 )
-            
-            # Determine final configuration based on choice
-            if choice == UserChoice.LLM and self.current_dual_recommendation.llm_recommendation:
-                final_config = {
-                    'tier': self.current_dual_recommendation.llm_recommendation.tier,
-                    'performance': self.current_dual_recommendation.llm_recommendation.performance,
-                    'replication': self.current_dual_recommendation.llm_recommendation.replication,
-                    'reasoning': self.current_dual_recommendation.llm_recommendation.reasoning
-                }
-            elif choice == UserChoice.RULES:
-                rules_rec = self.current_dual_recommendation.rules_recommendation
-                final_config = {
-                    'tier': rules_rec.tier,
-                    'performance': rules_rec.performance,
-                    'replication': rules_rec.replication,
-                    'reasoning': rules_rec.reasoning
-                }
             else:
-                # Invalid choice
                 return AgentResponse(
-                    message="Invalid choice. Please try again.",
-                    success=False
+                    message="Invalid choice. Please enter 1 (Rules) or cancel: ",
+                    success=True
                 )
-            
-            # Record feedback for learning
-            self.feedback_tracker.record_feedback(
-                self.current_dual_recommendation,
-                choice,
-                final_config
-            )
-            
-            # Show final selection
-            self.dual_ui.show_final_selection(choice, final_config)
-            
-            # Store the final configuration
-            self.context.current_recommendation = final_config
-            self.context.state = ConversationState.CONFIRMING_DEPLOYMENT
-            
-            return AgentResponse(
-                message="Configuration selected! Would you like me to deploy this storage account?",
-                success=True,
-                requires_confirmation=True,
-                recommendation=final_config
-            )
-            
-        except Exception as e:
-            self.context.state = ConversationState.ERROR
-            return AgentResponse(
-                message=f"Sorry, there was an error processing your choice: {str(e)}",
-                success=False
-            )
+        
+        # Process the choice
+        return self._process_user_choice(choice, None)
     
     def end_conversation(self) -> AgentResponse:
         """
@@ -540,6 +786,81 @@ class StorageConversation:
         self._record_interaction("system", "Conversation ended", response)
         
         return response
+    
+    def _process_user_choice(self, choice: UserChoice, custom_config: Optional[Dict[str, Any]]) -> AgentResponse:
+        """
+        Process user's choice for dual recommendations.
+        
+        Args:
+            choice (UserChoice): User's recommendation choice.
+            custom_config (Optional[Dict[str, Any]]): Custom configuration if provided.
+            
+        Returns:
+            AgentResponse: Response after processing user choice.
+        """
+        if not self.current_dual_recommendation:
+            # No dual recommendation available, fallback to error
+            self.context.state = ConversationState.ERROR
+            return AgentResponse(
+                message="Sorry, I don't have any recommendations to show. Let's start over.",
+                success=False
+            )
+        
+        # Process the choice
+        if choice == UserChoice.CANCEL:
+            # Reset conversation state for new request
+            self.context.state = ConversationState.GATHERING_REQUIREMENTS
+            self.current_dual_recommendation = None
+            self.context.current_recommendation = None
+            
+            return AgentResponse(
+                message="Configuration cancelled. What storage do you need?",
+                success=True
+            )
+        
+        # Determine final configuration based on choice
+        if choice == UserChoice.LLM and self.current_dual_recommendation.llm_recommendation:
+            final_config = {
+                'tier': self.current_dual_recommendation.llm_recommendation.tier,
+                'performance': self.current_dual_recommendation.llm_recommendation.performance,
+                'replication': self.current_dual_recommendation.llm_recommendation.replication,
+                'reasoning': self.current_dual_recommendation.llm_recommendation.reasoning
+            }
+        elif choice == UserChoice.RULES:
+            rules_rec = self.current_dual_recommendation.rules_recommendation
+            final_config = {
+                'tier': rules_rec.tier,
+                'performance': rules_rec.performance,
+                'replication': rules_rec.replication,
+                'reasoning': rules_rec.reasoning
+            }
+        else:
+            # Invalid choice
+            return AgentResponse(
+                message="Invalid choice. Please try again.",
+                success=False
+            )
+        
+        # Record feedback for learning
+        self.feedback_tracker.record_feedback(
+            self.current_dual_recommendation,
+            choice,
+            final_config
+        )
+        
+        # Show final selection
+        self.dual_ui.show_final_selection(choice, final_config)
+        
+        # Store the final configuration
+        self.context.current_recommendation = final_config
+        self.context.state = ConversationState.CONFIRMING_DEPLOYMENT
+        
+        return AgentResponse(
+            message="Configuration selected! Would you like me to deploy this storage account? (Say 'yes' to deploy, 'modify' to make changes, or 'cancel' to start over)",
+            success=True,
+            requires_confirmation=True,
+            recommendation=final_config
+        )
 
 
 def create_storage_conversation(data_dir: str = "data") -> StorageConversation:
